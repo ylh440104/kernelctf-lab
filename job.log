@@ -1,0 +1,79 @@
+﻿2026-11-15T09:01:23.2948781Z Current runner version: '2.338.2'
+2026-11-15T09:01:23.2966687Z ##[group]Runner Image Provisioner
+2026-11-15T09:01:23.2967339Z Hosted Compute Agent
+2026-11-15T09:01:23.2967838Z Version: 20261103.629
+2026-11-15T09:01:23.2968310Z Commit: 15dbd9ccb5dbf34fae002b6ed1a2670f52df37bc
+2026-11-15T09:01:23.2968853Z Build Date: 2026-11-03T17:26:59Z
+2026-11-15T09:01:23.2969451Z Worker ID: {7eac43ad-0f61-47ed-a163-e99af07a4a5c}
+2026-11-15T09:01:23.2969975Z Region: us-west-2
+2026-11-15T09:01:23.2970396Z Cloud: AWS
+2026-11-15T09:01:23.2970786Z ##[endgroup]
+2026-11-15T09:01:23.2971818Z ##[group]Operating System
+2026-11-15T09:01:23.2972283Z Ubuntu
+2026-11-15T09:01:23.2972653Z 26.04.1
+2026-11-15T09:01:23.2973020Z LTS
+2026-11-15T09:01:23.2973411Z ##[endgroup]
+2026-11-15T09:01:23.2973803Z ##[group]Runner Image
+2026-11-15T09:01:23.2974255Z Image: ubuntu-26.04
+2026-11-15T09:01:23.2974685Z Version: 20261111.82.6
+2026-11-15T09:01:23.2975622Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261111.82/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-15T09:01:23.2976939Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261111.82
+2026-11-15T09:01:23.2977644Z ##[endgroup]
+2026-11-15T09:01:23.2978500Z ##[group]GITHUB_TOKEN Permissions
+2026-11-15T09:01:23.2980140Z Contents: read
+2026-11-15T09:01:23.2980545Z Metadata: read
+2026-11-15T09:01:23.2980928Z Packages: read
+2026-11-15T09:01:23.2981341Z ##[endgroup]
+2026-11-15T09:01:23.2982788Z Secret source: Actions
+2026-11-15T09:01:23.2983443Z Cache mode: write
+2026-11-15T09:01:23.2983959Z Prepare workflow directory
+2026-11-15T09:01:23.3209313Z Prepare all required actions
+2026-11-15T09:01:23.3278930Z Complete job name: env-probe
+2026-11-15T09:01:23.3973061Z ##[group]Run echo "=== CPU ==="
+2026-11-15T09:01:23.3973660Z [36;1mecho "=== CPU ==="[0m
+2026-11-15T09:01:23.3974173Z [36;1mnproc[0m
+2026-11-15T09:01:23.3974670Z [36;1mgrep -m1 'model name' /proc/cpuinfo[0m
+2026-11-15T09:01:23.3975174Z [36;1mecho "=== FLAGS ==="[0m
+2026-11-15T09:01:23.3975863Z [36;1mgrep -m1 flags /proc/cpuinfo | tr ' ' '\n' | grep -E '^(vmx|svm|ibt|shstk)$' | tr '\n' ' '; echo[0m
+2026-11-15T09:01:23.3976812Z [36;1mecho "=== MEM ==="[0m
+2026-11-15T09:01:23.3977234Z [36;1mfree -h[0m
+2026-11-15T09:01:23.3977668Z [36;1mecho "=== DISK ==="[0m
+2026-11-15T09:01:23.3978095Z [36;1mdf -h /[0m
+2026-11-15T09:01:23.3978487Z [36;1mecho "=== KVM DEV ==="[0m
+2026-11-15T09:01:23.3978966Z [36;1mls -l /dev/kvm 2>&1 || echo NO_DEV_KVM[0m
+2026-11-15T09:01:23.3979475Z [36;1mecho "=== KVM MODULE ==="[0m
+2026-11-15T09:01:23.3980006Z [36;1mlsmod | grep -i kvm || echo NO_KVM_MODULE[0m
+2026-11-15T09:01:23.3980524Z [36;1mecho "=== NESTED ==="[0m
+2026-11-15T09:01:23.3981218Z [36;1mcat /sys/module/kvm_intel/parameters/nested 2>&1 || echo NO_NESTED_PARAM[0m
+2026-11-15T09:01:23.3981878Z [36;1mecho "=== VIRT ==="[0m
+2026-11-15T09:01:23.3982401Z [36;1msystemd-detect-virt 2>&1 || echo NO_DETECT[0m
+2026-11-15T09:01:23.3982982Z [36;1mecho "=== OS ==="[0m
+2026-11-15T09:01:23.3983425Z [36;1mcat /etc/os-release | head -2[0m
+2026-11-15T09:01:24.3811072Z shell: /usr/bin/bash -e {0}
+2026-11-15T09:01:24.3811961Z ##[endgroup]
+2026-11-15T09:01:24.3995578Z === CPU ===
+2026-11-15T09:01:24.4006314Z 4
+2026-11-15T09:01:24.4016730Z model name	: Intel(R) Xeon(R) 6975P-C
+2026-11-15T09:01:24.4031963Z === FLAGS ===
+2026-11-15T09:01:24.4050952Z vmx 
+2026-11-15T09:01:24.4088381Z === MEM ===
+2026-11-15T09:01:24.4089061Z                total        used        free      shared  buff/cache   available
+2026-11-15T09:01:24.4089908Z Mem:            15Gi       789Mi        14Gi        38Mi       778Mi        14Gi
+2026-11-15T09:01:24.4090615Z Swap:             0B          0B          0B
+2026-11-15T09:01:24.4093165Z === DISK ===
+2026-11-15T09:01:24.4100302Z Filesystem            Size  Used Avail Use% Mounted on
+2026-11-15T09:01:24.4101193Z /dev/mapper/cow-root  145G   54G   91G  38% /
+2026-11-15T09:01:24.4101996Z === KVM DEV ===
+2026-11-15T09:01:24.4124563Z crw-rw---- 1 root kvm 10, 232 Nov 15 09:00 /dev/kvm
+2026-11-15T09:01:24.4126663Z === KVM MODULE ===
+2026-11-15T09:01:24.4148358Z kvm_intel             552960  0
+2026-11-15T09:01:24.4149013Z kvm                  1536000  1 kvm_intel
+2026-11-15T09:01:24.4149690Z irqbypass              12288  1 kvm
+2026-11-15T09:01:24.4150235Z === NESTED ===
+2026-11-15T09:01:24.4165418Z Y
+2026-11-15T09:01:24.4168163Z === VIRT ===
+2026-11-15T09:01:24.4185101Z amazon
+2026-11-15T09:01:24.4185715Z === OS ===
+2026-11-15T09:01:24.4202639Z PRETTY_NAME="Ubuntu 26.04.1 LTS"
+2026-11-15T09:01:24.4203247Z NAME="Ubuntu"
+2026-11-15T09:01:24.4333832Z Cleaning up orphan processes

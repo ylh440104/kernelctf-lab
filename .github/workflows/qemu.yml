@@ -1,0 +1,91 @@
+name: qemu
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  kvm-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: cpu flags
+        run: |
+          echo "=== CET FLAGS ==="
+          grep -m1 flags /proc/cpuinfo | tr ' ' '\n' | grep -iE 'ibt|shstk|cet' | tr '\n' ' '
+          echo ""
+          echo "=== VMX SVM ==="
+          grep -m1 flags /proc/cpuinfo | tr ' ' '\n' | grep -iE '^vmx$|^svm$' | tr '\n' ' '
+          echo ""
+          echo "=== NPROC ==="
+          nproc
+          echo "=== DISK ==="
+          df -h /
+          echo "=== MEM ==="
+          free -h
+
+      - name: install qemu
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils cpio gzip curl
+          qemu-system-x86_64 --version | head -1
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: kvm accel test
+        run: |
+          printf 'info kvm\nquit\n' > /tmp/mon.txt
+          timeout 60 qemu-system-x86_64 -accel kvm -m 256 -M q35 -display none -monitor stdio < /tmp/mon.txt 2>&1 | head -20
+
+      - name: fetch kernelctf info
+        run: |
+          git clone -q --depth 1 https://github.com/google/security-research.git sr
+          cd sr/kernelctf/server
+          pip install --quiet --break-system-packages requests pyyaml httplib2 2>&1 | tail -2
+          timeout 150 python3 client/cli.py --action info 2>&1 | head -80
+
+      - name: build initramfs
+        run: |
+          mkdir -p rootfs/dev rootfs/proc rootfs/sys
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'mount -t proc none /proc' \
+            'mount -t sysfs none /sys' \
+            'echo "BOOT_OK_KERNEL=$(uname -r)"' \
+            'echo "GUEST_MODEL=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2)"' \
+            'echo "GUEST_CET=$(grep -m1 flags /proc/cpuinfo | tr " " "\n" | grep -ciE "ibt|shstk")"' \
+            'poweroff -f' > rootfs/init
+          chmod +x rootfs/init
+          cd rootfs && find . | cpio -o -H newc 2>/dev/null | gzip -9 > ../initramfs.cpio.gz
+          cd .. && ls -lh initramfs.cpio.gz
+
+      - name: boot test host kernel
+        run: |
+          ls /boot/
+          K=$(ls /boot/vmlinuz-* 2>/dev/null | head -1)
+          echo "KERNEL=$K"
+          if [ -n "$K" ]; then
+            timeout 150 qemu-system-x86_64 -accel kvm -m 1024 -M q35 -smp 2 \
+              -kernel "$K" -initrd initramfs.cpio.gz \
+              -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -40
+          else
+            echo NO_HOST_KERNEL
+          fi
+
+      - name: boot test with cet cpu model
+        run: |
+          K=$(ls /boot/vmlinuz-* 2>/dev/null | head -1)
+          if [ -n "$K" ]; then
+            timeout 150 qemu-system-x86_64 -accel kvm -m 1024 -M q35 -smp 2 \
+              -cpu host -kernel "$K" -initrd initramfs.cpio.gz \
+              -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -40
+          else
+            echo NO_HOST_KERNEL
+          fi
