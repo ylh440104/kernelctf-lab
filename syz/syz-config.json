@@ -1,0 +1,20 @@
+{
+  "name": "kcovfuzz",
+  "target": "linux/amd64",
+  "http": "127.0.0.1:56741",
+  "workdir": "@WS@/work/syz-workdir",
+  "kernel_obj": "@WS@/work/kernel",
+  "image": "@WS@/work/img/bullseye.img",
+  "sshkey": "@WS@/work/img/bullseye.id_rsa",
+  "syzkaller": "@WS@/syzkaller",
+  "sandbox": "@SANDBOX@",
+  "procs": 2,
+  "type": "qemu",
+  "vm": {
+    "count": 2,
+    "kernel": "@WS@/work/kernel/bzImage",
+    "cpu": 2,
+    "mem": 3072,
+    "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0"
+  }
+}
