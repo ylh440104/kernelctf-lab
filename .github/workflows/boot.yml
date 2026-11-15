@@ -1,0 +1,75 @@
+name: boot
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  real-boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils cpio gzip curl socat xz-utils
+          qemu-system-x86_64 --version | head -1
+          socat -V 2>&1 | head -1
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: fetch kernelctf info
+        run: |
+          git clone -q --depth 1 https://github.com/google/security-research.git sr
+          cd sr/kernelctf/server
+          pip install --quiet --break-system-packages requests pyyaml httplib2 2>&1 | tail -2
+          timeout 180 python3 client/cli.py --action info 2>&1 | head -100 | tee /tmp/info.txt
+
+      - name: build initramfs
+        run: |
+          mkdir -p rootfs/dev rootfs/proc rootfs/sys rootfs/tmp
+          printf '%s\n' \
+            '#!/bin/sh' \
+            'mount -t proc none /proc' \
+            'mount -t sysfs none /sys' \
+            'mount -t devtmpfs none /dev 2>/dev/null' \
+            'echo "===GUEST==="' \
+            'echo "BOOT_OK_KERNEL=$(uname -r)"' \
+            'echo "GUEST_CET_COUNT=$(grep -m1 flags /proc/cpuinfo | tr " " "\n" | grep -ciE "ibt|shstk")"' \
+            'grep -m1 flags /proc/cpuinfo | tr " " "\n" | grep -iE "ibt|shstk" | tr "\n" " "' \
+            'echo ""' \
+            'echo "GUEST_MODEL=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2)"' \
+            'echo "===ENDGUEST==="' \
+            'poweroff -f' > rootfs/init
+          chmod +x rootfs/init
+          cd rootfs && find . | cpio -o -H newc 2>/dev/null | gzip -9 > ../initramfs.cpio.gz
+          cd .. && ls -lh initramfs.cpio.gz
+
+      - name: boot with official kernelctf kernel
+        run: |
+          grep -oE 'https://[^ ]*bzImage[^ ]*' /tmp/info.txt | head -3 || true
+          URL=$(grep -oE 'https://[^ ]*bzImage[^ ]*' /tmp/info.txt | head -1)
+          echo "URL=$URL"
+          if [ -n "$URL" ]; then
+            curl -sL "$URL" -o bzImage
+            ls -lh bzImage
+            echo "=== BOOTING OFFICIAL KERNELCTF KERNEL ==="
+            timeout 180 qemu-system-x86_64 -accel kvm -m 2048 -M q35 -smp 2 \
+              -cpu host -kernel bzImage -initrd initramfs.cpio.gz \
+              -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -50
+          else
+            echo "NO_BZIMAGE_URL_FOUND"
+            echo "=== FALLBACK: host kernel copy ==="
+            sudo cp /boot/vmlinuz-$(uname -r) /tmp/vmlinuz || true
+            sudo chmod 644 /tmp/vmlinuz
+            timeout 180 qemu-system-x86_64 -accel kvm -m 2048 -M q35 -smp 2 \
+              -cpu host -kernel /tmp/vmlinuz -initrd initramfs.cpio.gz \
+              -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -50
+          fi
