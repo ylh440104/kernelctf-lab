@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: 'Release tag with kernel+rootfs artifacts'
+        description: 'Release tag with kernel artifacts'
         required: true
         default: 'kcov-v3-1'
       target:
@@ -12,9 +12,13 @@ on:
         required: true
         default: 'lts-kasan'
       fuzz_minutes:
-        description: 'How long to fuzz (minutes)'
+        description: 'Fuzz duration in minutes'
         required: true
         default: '180'
+      sandbox:
+        description: 'sandbox mode: none or setuid'
+        required: true
+        default: 'none'
 
 jobs:
   fuzz:
@@ -23,8 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: install go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: 'stable'
 
@@ -32,8 +35,8 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs \
-            build-essential gcc-multilib flex bison libssl-dev libelf-dev \
-            libncurses-dev bc pkg-config
+            build-essential flex bison libssl-dev libelf-dev libncurses-dev \
+            bc pkg-config debootstrap
           go version
 
       - name: build syzkaller
@@ -49,95 +52,77 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
-          test -w /dev/kvm && echo KVM_WRITABLE || echo KVM_NOT_WRITABLE
+          test -w /dev/kvm && echo KVM_READY || echo KVM_FAIL
 
-      - name: download artifacts
+      - name: download kernel from release
         run: |
           TAG="${{ github.event.inputs.release_tag }}"
+          BASE="https://github.com/ylh440104/kernelctf-lab/releases/download/$TAG"
           TGT="${{ github.event.inputs.target }}"
-          BASE="https://github.com/ylh440104/kernelctf-lab/releases/download/$TAG"
+          if [ "$TGT" = "hardened" ]; then N=hardened-kcov; else N=lts-kasan-kcov; fi
           mkdir -p work/kernel work/img
-          if [ "$TGT" = "hardened" ]; then
-            PREFIX="kernel-hardened-kcov"
-          else
-            PREFIX="kernel-lts-kasan-kcov"
-          fi
-          curl -fsSL "$BASE/$PREFIX/bzImage" -o work/kernel/bzImage || curl -fsSL "$BASE/bzImage-$PREFIX" -o work/kernel/bzImage
-          curl -fsSL "$BASE/vmlinux" -o work/kernel/vmlinux || true
+          curl -fsSL "$BASE/kernel-$N/bzImage" -o work/kernel/bzImage
+          curl -fsSL "$BASE/kernel-$N/vmlinux" -o work/kernel/vmlinux
+          chmod +x work/kernel/bzImage
           ls -lh work/kernel/
+          file work/kernel/vmlinux | head -2
 
-      - name: fetch rootfs from release assets
+      - name: make rootfs
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
-          BASE="https://github.com/ylh440104/kernelctf-lab/releases/download/$TAG"
-          cd work/img
-          curl -fsSL "$BASE/bullseye.img" -o bullseye.img && echo GOT_IMAGE || echo NO_IMAGE
-          curl -fsSL "$BASE/bullseye.id_rsa" -o bullseye.id_rsa && chmod 600 bullseye.id_rsa && echo GOT_KEY || echo NO_KEY
+          cd syzkaller/tools
+          sudo ./create-image.sh -d bullseye
+          sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa
+          cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/"
+          cd "$GITHUB_WORKSPACE/work/img"
+          chmod 600 bullseye.id_rsa
           ls -lh
 
-      - name: build rootfs if missing
-        if: always()
+      - name: sanity boot test
         run: |
-          cd work/img
-          if [ ! -f bullseye.img ]; then
-            echo "=== building rootfs with syzkaller tools ==="
-            sudo apt-get install -y -qq debootstrap
-            cd /root/../home/runner/work/kernelctf-lab/kernelctf-lab/syzkaller/tools 2>/dev/null || cd "$GITHUB_WORKSPACE/syzkaller/tools"
-            sudo ./create-image.sh -d bullseye
-            cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/" 2>/dev/null || true
-            cd "$GITHUB_WORKSPACE/work/img"
-            ls -lh
-          fi
+          qemu-system-x86_64 -accel kvm -m 2048 -smp 2 \
+            -kernel work/kernel/bzImage \
+            -drive file=work/img/bullseye.img,format=raw,if=virtio \
+            -append "root=/dev/vda console=ttyS0" \
+            -nographic -no-reboot > boot-test.log 2>&1 &
+          QPID=$!
+          sleep 75
+          kill $QPID 2>/dev/null || true
+          sleep 2
+          echo "=== head ==="
+          head -50 boot-test.log
+          echo "=== tail ==="
+          tail -30 boot-test.log
+          if grep -qE 'login:|syzbot login' boot-test.log; then echo BOOT_OK; else echo BOOT_FAIL; fi
 
-      - name: write syzkaller config
+      - name: write config
         run: |
-          cd work
-          cat > config.cfg <<CFG
-{
-  "name": "kcovfuzz",
-  "target": "linux/amd64",
-  "http": "127.0.0.1:56741",
-  "workdir": "$GITHUB_WORKSPACE/work/syz-workdir",
-  "kernel_obj": "$GITHUB_WORKSPACE/work/kernel",
-  "image": "$GITHUB_WORKSPACE/work/img/bullseye.img",
-  "sshkey": "$GITHUB_WORKSPACE/work/img/bullseye.id_rsa",
-  "syzkaller": "$GITHUB_WORKSPACE/syzkaller",
-  "procs": 2,
-  "type": "qemu",
-  "vm": {
-    "count": 2,
-    "kernel": "$GITHUB_WORKSPACE/work/kernel/bzImage",
-    "cpu": 2,
-    "mem": 3072,
-    "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0"
-  }
-}
-CFG
-          cat config.cfg
-          mkdir -p syz-workdir
+          WS="$GITHUB_WORKSPACE"
+          SB="${{ github.event.inputs.sandbox }}"
+          sed -e "s|@WS@|$WS|g" -e "s|@SANDBOX@|$SB|g" "$WS/syz/syz-config.json" > work/config.cfg
+          cat work/config.cfg
+          mkdir -p work/syz-workdir
 
       - name: run syz-manager
         run: |
           cd work
-          timeout --signal=INT $(( ${{ github.event.inputs.fuzz_minutes }} * 60 )) \
-            sudo -E "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" \
-            -config config.cfg 2>&1 | tee syz-manager.log || true
-          echo "=== manager exited ==="
+          MINS=${{ github.event.inputs.fuzz_minutes }}
+          sudo -E "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
+          sleep $(( MINS * 60 ))
+          sudo pkill -INT -f syz-manager || true
+          sleep 20
+          sudo pkill -f syz-manager || true
+          echo "=== manager stopped ==="
 
-      - name: collect crashes
+      - name: collect results
         if: always()
         run: |
           cd work
-          echo "=== crash dir ==="
-          ls -lhR syz-workdir/crashes 2>/dev/null | head -60 || echo NO_CRASHES
           echo "=== crash count ==="
           find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
-          for f in $(find syz-workdir/crashes -name '*.log' 2>/dev/null | head -5); do
-            echo "--------- $f ---------"
-            head -40 "$f"
-          done
+          echo "=== crash files ==="
+          find syz-workdir/crashes -name '*.log' 2>/dev/null | head -20
           echo "=== manager log tail ==="
-          tail -40 syz-manager.log
+          tail -60 syz-manager.log
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -145,6 +130,7 @@ CFG
           name: syz-results
           path: |
             work/syz-manager.log
-            work/syz-workdir/crashes
             work/config.cfg
+            work/syz-workdir/crashes/**
+            boot-test.log
           retention-days: 90
