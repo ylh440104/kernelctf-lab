@@ -85,10 +85,31 @@ static long one_cycle(int i)
 int main(void)
 {
 	printf("LEAK start uid=%d\n", getuid());
+
+	char buf0[4096];
+	char slab0[64] = "?";
+	int fd0 = open("/proc/meminfo", O_RDONLY);
+	if (fd0 >= 0) {
+		int n = read(fd0, buf0, sizeof(buf0) - 1);
+		close(fd0);
+		if (n > 0) {
+			buf0[n] = 0;
+			char *p = strstr(buf0, "Slab:");
+			if (p) {
+				int j = 0;
+				while (p[j] && p[j] != '\n' && j < 60) { slab0[j] = p[j]; j++; }
+				slab0[j] = 0;
+			}
+		}
+	}
+	printf("LEAK baseline %s\n", slab0);
+
 	for (int i = 0; i < 400; i++)
 		if (one_cycle(i) < 0)
 			break;
 	printf("LEAK cycles=400\n");
+
+	sleep(3);
 
 	int fd = open("/proc/meminfo", O_RDONLY);
 	if (fd >= 0) {
@@ -103,7 +124,7 @@ int main(void)
 				int j = 0;
 				while (p[j] && p[j] != '\n' && j < 120) { line[j] = p[j]; j++; }
 				line[j] = 0;
-				printf("LEAK %s\n", line);
+				printf("LEAK after %s\n", line);
 			}
 		}
 	}
