@@ -1,0 +1,895 @@
+﻿2026-11-15T12:55:31.5320766Z Current runner version: '2.338.2'
+2026-11-15T12:55:31.5345735Z ##[group]Runner Image Provisioner
+2026-11-15T12:55:31.5346881Z Hosted Compute Agent
+2026-11-15T12:55:31.5347486Z Version: 20261103.629
+2026-11-15T12:55:31.5348126Z Commit: 15dbd9ccb5dbf34fae002b6ed1a2670f52df37bc
+2026-11-15T12:55:31.5348938Z Build Date: 2026-11-03T17:26:59Z
+2026-11-15T12:55:31.5349701Z Worker ID: {13d234d6-c476-4682-b079-531d6c17cadc}
+2026-11-15T12:55:31.5350470Z Region: us-east-1
+2026-11-15T12:55:31.5351040Z Cloud: AWS
+2026-11-15T12:55:31.5351572Z ##[endgroup]
+2026-11-15T12:55:31.5353186Z ##[group]Operating System
+2026-11-15T12:55:31.5353847Z Ubuntu
+2026-11-15T12:55:31.5354349Z 26.04.1
+2026-11-15T12:55:31.5354910Z LTS
+2026-11-15T12:55:31.5355412Z ##[endgroup]
+2026-11-15T12:55:31.5355971Z ##[group]Runner Image
+2026-11-15T12:55:31.5356887Z Image: ubuntu-26.04
+2026-11-15T12:55:31.5357482Z Version: 20261111.82.6
+2026-11-15T12:55:31.5358795Z Included Software: https://github.com/actions/runner-images/blob/ubuntu26/20261111.82/images/ubuntu/Ubuntu2604-Readme.md
+2026-11-15T12:55:31.5360792Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu26%2F20261111.82
+2026-11-15T12:55:31.5361900Z ##[endgroup]
+2026-11-15T12:55:31.5363103Z ##[group]GITHUB_TOKEN Permissions
+2026-11-15T12:55:31.5365305Z Contents: read
+2026-11-15T12:55:31.5365890Z Metadata: read
+2026-11-15T12:55:31.5366894Z Packages: read
+2026-11-15T12:55:31.5367457Z ##[endgroup]
+2026-11-15T12:55:31.5369719Z Secret source: Actions
+2026-11-15T12:55:31.5370738Z Cache mode: write
+2026-11-15T12:55:31.5371636Z Prepare workflow directory
+2026-11-15T12:55:31.5664379Z Prepare all required actions
+2026-11-15T12:55:31.5701450Z Getting action download info
+2026-11-15T12:55:31.7017354Z Download action repository 'actions/checkout@v4' (SHA:11d5960a326750d5838078e36cf38b85af677262)
+2026-11-15T12:55:33.8581286Z Download action repository 'actions/upload-artifact@v4' (SHA:ea165f8d65b6e75b540449e92b4886f43607fa02)
+2026-11-15T12:55:34.1893553Z Complete job name: run
+2026-11-15T12:55:34.2553922Z ##[group]Run actions/checkout@v4
+2026-11-15T12:55:34.2554626Z with:
+2026-11-15T12:55:34.2555111Z   repository: ylh440104/kernelctf-lab
+2026-11-15T12:55:34.2558986Z   token: ***
+2026-11-15T12:55:34.2559471Z   ssh-strict: true
+2026-11-15T12:55:34.2559901Z   ssh-user: git
+2026-11-15T12:55:34.2560327Z   persist-credentials: true
+2026-11-15T12:55:34.2560799Z   clean: true
+2026-11-15T12:55:34.2561240Z   sparse-checkout-cone-mode: true
+2026-11-15T12:55:34.2561708Z   fetch-depth: 1
+2026-11-15T12:55:34.2562150Z   fetch-tags: false
+2026-11-15T12:55:34.2562577Z   show-progress: true
+2026-11-15T12:55:34.2563015Z   lfs: false
+2026-11-15T12:55:34.2563449Z   submodules: false
+2026-11-15T12:55:34.2563894Z   set-safe-directory: true
+2026-11-15T12:55:34.2564384Z   allow-unsafe-pr-checkout: false
+2026-11-15T12:55:34.2565056Z ##[endgroup]
+2026-11-15T12:55:36.7417044Z Syncing repository: ylh440104/kernelctf-lab
+2026-11-15T12:55:36.7419079Z ##[group]Getting Git version info
+2026-11-15T12:55:36.7419928Z Working directory is '/home/runner/work/kernelctf-lab/kernelctf-lab'
+2026-11-15T12:55:36.7420935Z [command]/usr/bin/git version
+2026-11-15T12:55:36.7421375Z git version 2.56.1
+2026-11-15T12:55:36.7429854Z ##[endgroup]
+2026-11-15T12:55:36.7439388Z Temporarily overriding HOME='/home/runner/work/_temp/8db00f7f-7ec5-4297-aa55-c52f9d110bb9' before making global git config changes
+2026-11-15T12:55:36.7440238Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-15T12:55:36.7442361Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/kernelctf-lab/kernelctf-lab
+2026-11-15T12:55:36.7825736Z Deleting the contents of '/home/runner/work/kernelctf-lab/kernelctf-lab'
+2026-11-15T12:55:36.7827252Z ##[group]Initializing the repository
+2026-11-15T12:55:36.7828011Z [command]/usr/bin/git init /home/runner/work/kernelctf-lab/kernelctf-lab
+2026-11-15T12:55:36.8194714Z hint: Using 'master' as the name for the initial branch. This default branch name
+2026-11-15T12:55:36.8195394Z hint: will change to "main" in Git 3.0. To configure the initial branch name
+2026-11-15T12:55:36.8196376Z hint: to use in all of your new repositories, which will suppress this warning,
+2026-11-15T12:55:36.8196887Z hint: call:
+2026-11-15T12:55:36.8197155Z hint:
+2026-11-15T12:55:36.8197499Z hint: 	git config --global init.defaultBranch <name>
+2026-11-15T12:55:36.8197843Z hint:
+2026-11-15T12:55:36.8198181Z hint: Names commonly chosen instead of 'master' are 'main', 'trunk' and
+2026-11-15T12:55:36.8198702Z hint: 'development'. The just-created branch can be renamed via this command:
+2026-11-15T12:55:36.8199086Z hint:
+2026-11-15T12:55:36.8199346Z hint: 	git branch -m <name>
+2026-11-15T12:55:36.8199787Z hint:
+2026-11-15T12:55:36.8200157Z hint: Disable this message with "git config set advice.defaultBranchName false"
+2026-11-15T12:55:36.8219780Z Initialized empty Git repository in /home/runner/work/kernelctf-lab/kernelctf-lab/.git/
+2026-11-15T12:55:36.8227150Z [command]/usr/bin/git remote add origin https://github.com/ylh440104/kernelctf-lab
+2026-11-15T12:55:36.8286711Z ##[endgroup]
+2026-11-15T12:55:36.8287610Z ##[group]Disabling automatic garbage collection
+2026-11-15T12:55:36.8289852Z [command]/usr/bin/git config --local gc.auto 0
+2026-11-15T12:55:36.8309296Z ##[endgroup]
+2026-11-15T12:55:36.8309837Z ##[group]Setting up auth
+2026-11-15T12:55:36.8314364Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-15T12:55:36.8336026Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-15T12:55:37.1610141Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-15T12:55:37.1632938Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-15T12:55:37.1809172Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-15T12:55:37.1830484Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-15T12:55:37.2001720Z [command]/usr/bin/git config --local http.https://github.com/.extraheader AUTHORIZATION: basic ***
+2026-11-15T12:55:37.2025360Z ##[endgroup]
+2026-11-15T12:55:37.2025775Z ##[group]Fetching the repository
+2026-11-15T12:55:37.2030949Z [command]/usr/bin/git -c protocol.version=2 fetch --no-tags --prune --no-recurse-submodules --depth=1 origin +a788adc932420ff9b0ca281e56f404abc552df25:refs/remotes/origin/main
+2026-11-15T12:55:37.5313918Z From https://github.com/ylh440104/kernelctf-lab
+2026-11-15T12:55:37.5314636Z  * [new ref]         a788adc932420ff9b0ca281e56f404abc552df25 -> origin/main
+2026-11-15T12:55:37.5318668Z ##[endgroup]
+2026-11-15T12:55:37.5319092Z ##[group]Determining the checkout info
+2026-11-15T12:55:37.5320027Z ##[endgroup]
+2026-11-15T12:55:37.5324705Z [command]/usr/bin/git sparse-checkout disable
+2026-11-15T12:55:37.5374976Z [command]/usr/bin/git config --local --unset-all extensions.worktreeConfig
+2026-11-15T12:55:37.5394896Z ##[group]Checking out the ref
+2026-11-15T12:55:37.5398148Z [command]/usr/bin/git checkout --progress --force -B main refs/remotes/origin/main
+2026-11-15T12:55:37.5490245Z Switched to a new branch 'main'
+2026-11-15T12:55:37.5498062Z branch 'main' set up to track 'origin/main'.
+2026-11-15T12:55:37.5501174Z ##[endgroup]
+2026-11-15T12:55:37.5541996Z [command]/usr/bin/git log -1 --format=%H
+2026-11-15T12:55:37.5558125Z a788adc932420ff9b0ca281e56f404abc552df25
+2026-11-15T12:55:37.5725580Z ##[group]Run sudo apt-get update -qq
+2026-11-15T12:55:37.5725957Z [36;1msudo apt-get update -qq[0m
+2026-11-15T12:55:37.5726668Z [36;1msudo apt-get install -y -qq qemu-system-x86 cpio gzip curl busybox-static gcc[0m
+2026-11-15T12:55:37.5748448Z shell: /usr/bin/bash -e {0}
+2026-11-15T12:55:37.5748791Z ##[endgroup]
+2026-11-15T12:55:54.3203594Z Selecting previously unselected package msr-tools.
+2026-11-15T12:55:54.5408230Z (Reading database ... 
+2026-11-15T12:55:54.5409558Z (Reading database ... 5%
+2026-11-15T12:55:54.5410273Z (Reading database ... 10%
+2026-11-15T12:55:54.5410536Z (Reading database ... 15%
+2026-11-15T12:55:54.5410777Z (Reading database ... 20%
+2026-11-15T12:55:54.5411035Z (Reading database ... 25%
+2026-11-15T12:55:54.5411287Z (Reading database ... 30%
+2026-11-15T12:55:54.5411510Z (Reading database ... 35%
+2026-11-15T12:55:54.5412013Z (Reading database ... 40%
+2026-11-15T12:55:54.5412331Z (Reading database ... 45%
+2026-11-15T12:55:54.5412844Z (Reading database ... 50%
+2026-11-15T12:55:55.1007754Z (Reading database ... 55%
+2026-11-15T12:55:55.3088393Z (Reading database ... 60%
+2026-11-15T12:55:55.7867331Z (Reading database ... 65%
+2026-11-15T12:55:55.9777692Z (Reading database ... 70%
+2026-11-15T12:55:56.2341324Z (Reading database ... 75%
+2026-11-15T12:55:57.1199783Z (Reading database ... 80%
+2026-11-15T12:55:58.1763889Z (Reading database ... 85%
+2026-11-15T12:55:59.2475742Z (Reading database ... 90%
+2026-11-15T12:56:00.1017725Z (Reading database ... 95%
+2026-11-15T12:56:00.1018275Z (Reading database ... 100%
+2026-11-15T12:56:00.1019118Z (Reading database ... 213647 files and directories currently installed.)
+2026-11-15T12:56:00.1062778Z Preparing to unpack .../00-msr-tools_1.3+git20220805.7d78c80-1ubuntu0.1_amd64v3.deb ...
+2026-11-15T12:56:00.1087160Z Unpacking msr-tools (1.3+git20220805.7d78c80-1ubuntu0.1) ...
+2026-11-15T12:56:00.1905787Z Selecting previously unselected package cpu-checker.
+2026-11-15T12:56:00.2004252Z Preparing to unpack .../01-cpu-checker_0.7-1.4build1_amd64v3.deb ...
+2026-11-15T12:56:00.2008218Z Unpacking cpu-checker (0.7-1.4build1) ...
+2026-11-15T12:56:00.2570221Z Selecting previously unselected package libproxy1v5:amd64.
+2026-11-15T12:56:00.2667715Z Preparing to unpack .../02-libproxy1v5_0.5.12-1_amd64v3.deb ...
+2026-11-15T12:56:00.3047294Z Unpacking libproxy1v5:amd64 (0.5.12-1) ...
+2026-11-15T12:56:00.3207532Z Selecting previously unselected package glib-networking-common.
+2026-11-15T12:56:00.3303358Z Preparing to unpack .../03-glib-networking-common_2.80.1-1build2_all.deb ...
+2026-11-15T12:56:00.3308066Z Unpacking glib-networking-common (2.80.1-1build2) ...
+2026-11-15T12:56:00.3437880Z Selecting previously unselected package glib-networking-services.
+2026-11-15T12:56:00.3528375Z Preparing to unpack .../04-glib-networking-services_2.80.1-1build2_amd64v3.deb ...
+2026-11-15T12:56:00.3532352Z Unpacking glib-networking-services (2.80.1-1build2) ...
+2026-11-15T12:56:00.3669961Z Selecting previously unselected package user-session-migration.
+2026-11-15T12:56:00.3755730Z Preparing to unpack .../05-user-session-migration_0.5.1_amd64v3.deb ...
+2026-11-15T12:56:00.3759324Z Unpacking user-session-migration (0.5.1) ...
+2026-11-15T12:56:00.3885555Z Selecting previously unselected package gsettings-desktop-schemas.
+2026-11-15T12:56:00.3969534Z Preparing to unpack .../06-gsettings-desktop-schemas_50.0-1ubuntu2_all.deb ...
+2026-11-15T12:56:00.3973330Z Unpacking gsettings-desktop-schemas (50.0-1ubuntu2) ...
+2026-11-15T12:56:00.4142599Z Selecting previously unselected package glib-networking:amd64.
+2026-11-15T12:56:00.4226578Z Preparing to unpack .../07-glib-networking_2.80.1-1build2_amd64v3.deb ...
+2026-11-15T12:56:00.4232330Z Unpacking glib-networking:amd64 (2.80.1-1build2) ...
+2026-11-15T12:56:00.4370087Z Selecting previously unselected package libcdparanoia0:amd64.
+2026-11-15T12:56:00.4453812Z Preparing to unpack .../08-libcdparanoia0_3.10.2+debian-14ubuntu2_amd64v3.deb ...
+2026-11-15T12:56:00.4458415Z Unpacking libcdparanoia0:amd64 (3.10.2+debian-14ubuntu2) ...
+2026-11-15T12:56:00.4594465Z Selecting previously unselected package liborc-0.4-0t64:amd64.
+2026-11-15T12:56:00.4678769Z Preparing to unpack .../09-liborc-0.4-0t64_1%3a0.4.42-2_amd64v3.deb ...
+2026-11-15T12:56:00.4683634Z Unpacking liborc-0.4-0t64:amd64 (1:0.4.42-2) ...
+2026-11-15T12:56:00.4860441Z Selecting previously unselected package libgstreamer-plugins-base1.0-0:amd64.
+2026-11-15T12:56:00.4945283Z Preparing to unpack .../10-libgstreamer-plugins-base1.0-0_1.28.2-1ubuntu0.2_amd64v3.deb ...
+2026-11-15T12:56:00.4950168Z Unpacking libgstreamer-plugins-base1.0-0:amd64 (1.28.2-1ubuntu0.2) ...
+2026-11-15T12:56:00.5187740Z Selecting previously unselected package libopus0:amd64.
+2026-11-15T12:56:00.5273095Z Preparing to unpack .../11-libopus0_1.6.1-1_amd64v3.deb ...
+2026-11-15T12:56:00.5276827Z Unpacking libopus0:amd64 (1.6.1-1) ...
+2026-11-15T12:56:00.5552694Z Selecting previously unselected package libtheoradec2:amd64.
+2026-11-15T12:56:00.5643034Z Preparing to unpack .../12-libtheoradec2_1.2.0+dfsg-6_amd64v3.deb ...
+2026-11-15T12:56:00.5647392Z Unpacking libtheoradec2:amd64 (1.2.0+dfsg-6) ...
+2026-11-15T12:56:00.5783518Z Selecting previously unselected package libtheoraenc2:amd64.
+2026-11-15T12:56:00.5875006Z Preparing to unpack .../13-libtheoraenc2_1.2.0+dfsg-6_amd64v3.deb ...
+2026-11-15T12:56:00.5879366Z Unpacking libtheoraenc2:amd64 (1.2.0+dfsg-6) ...
+2026-11-15T12:56:00.6021500Z Selecting previously unselected package libvisual-0.4-0:amd64.
+2026-11-15T12:56:00.6112922Z Preparing to unpack .../14-libvisual-0.4-0_0.4.2-4_amd64v3.deb ...
+2026-11-15T12:56:00.6117594Z Unpacking libvisual-0.4-0:amd64 (0.4.2-4) ...
+2026-11-15T12:56:00.6264507Z Selecting previously unselected package libvorbisenc2:amd64.
+2026-11-15T12:56:00.6355129Z Preparing to unpack .../15-libvorbisenc2_1.3.7-3build2_amd64v3.deb ...
+2026-11-15T12:56:00.6359906Z Unpacking libvorbisenc2:amd64 (1.3.7-3build2) ...
+2026-11-15T12:56:00.6506831Z Selecting previously unselected package gstreamer1.0-plugins-base:amd64.
+2026-11-15T12:56:00.6596480Z Preparing to unpack .../16-gstreamer1.0-plugins-base_1.28.2-1ubuntu0.2_amd64v3.deb ...
+2026-11-15T12:56:00.6600892Z Unpacking gstreamer1.0-plugins-base:amd64 (1.28.2-1ubuntu0.2) ...
+2026-11-15T12:56:00.6829730Z Selecting previously unselected package libaa1:amd64.
+2026-11-15T12:56:00.6925020Z Preparing to unpack .../17-libaa1_1.4p5-51.1build1_amd64v3.deb ...
+2026-11-15T12:56:00.6929598Z Unpacking libaa1:amd64 (1.4p5-51.1build1) ...
+2026-11-15T12:56:00.7069166Z Selecting previously unselected package libraw1394-11:amd64.
+2026-11-15T12:56:00.7164089Z Preparing to unpack .../18-libraw1394-11_2.1.2-2build4_amd64v3.deb ...
+2026-11-15T12:56:00.7168107Z Unpacking libraw1394-11:amd64 (2.1.2-2build4) ...
+2026-11-15T12:56:00.7304306Z Selecting previously unselected package libavc1394-0:amd64.
+2026-11-15T12:56:00.7396983Z Preparing to unpack .../19-libavc1394-0_0.5.4-5build4_amd64v3.deb ...
+2026-11-15T12:56:00.7401475Z Unpacking libavc1394-0:amd64 (0.5.4-5build4) ...
+2026-11-15T12:56:00.7536425Z Selecting previously unselected package libcaca0:amd64.
+2026-11-15T12:56:00.7629516Z Preparing to unpack .../20-libcaca0_0.99.beta20-6ubuntu2.1_amd64v3.deb ...
+2026-11-15T12:56:00.7634395Z Unpacking libcaca0:amd64 (0.99.beta20-6ubuntu2.1) ...
+2026-11-15T12:56:00.7802112Z Selecting previously unselected package libdv4t64:amd64.
+2026-11-15T12:56:00.7895001Z Preparing to unpack .../21-libdv4t64_1.0.0-17.1build2_amd64v3.deb ...
+2026-11-15T12:56:00.7900157Z Unpacking libdv4t64:amd64 (1.0.0-17.1build2) ...
+2026-11-15T12:56:00.8040476Z Selecting previously unselected package libflac14:amd64.
+2026-11-15T12:56:00.8133469Z Preparing to unpack .../22-libflac14_1.5.0+ds-5_amd64v3.deb ...
+2026-11-15T12:56:00.8137847Z Unpacking libflac14:amd64 (1.5.0+ds-5) ...
+2026-11-15T12:56:00.8287536Z Selecting previously unselected package libiec61883-0:amd64.
+2026-11-15T12:56:00.8380630Z Preparing to unpack .../23-libiec61883-0_1.2.0-8_amd64v3.deb ...
+2026-11-15T12:56:00.8385741Z Unpacking libiec61883-0:amd64 (1.2.0-8) ...
+2026-11-15T12:56:00.8525058Z Selecting previously unselected package libmpg123-0t64:amd64.
+2026-11-15T12:56:00.8617582Z Preparing to unpack .../24-libmpg123-0t64_1.33.3-2_amd64v3.deb ...
+2026-11-15T12:56:00.8622414Z Unpacking libmpg123-0t64:amd64 (1.33.3-2) ...
+2026-11-15T12:56:00.8772115Z Selecting previously unselected package libmp3lame0:amd64.
+2026-11-15T12:56:00.8863543Z Preparing to unpack .../25-libmp3lame0_3.101~svn6525+dfsg-2ubuntu0.1_amd64v3.deb ...
+2026-11-15T12:56:00.8868315Z Unpacking libmp3lame0:amd64 (3.101~svn6525+dfsg-2ubuntu0.1) ...
+2026-11-15T12:56:00.9014774Z Selecting previously unselected package libasyncns0:amd64.
+2026-11-15T12:56:00.9107104Z Preparing to unpack .../26-libasyncns0_0.8-7_amd64v3.deb ...
+2026-11-15T12:56:00.9111449Z Unpacking libasyncns0:amd64 (0.8-7) ...
+2026-11-15T12:56:00.9247811Z Selecting previously unselected package libsndfile1:amd64.
+2026-11-15T12:56:00.9340484Z Preparing to unpack .../27-libsndfile1_1.2.2-4_amd64v3.deb ...
+2026-11-15T12:56:00.9344885Z Unpacking libsndfile1:amd64 (1.2.2-4) ...
+2026-11-15T12:56:00.9504133Z Selecting previously unselected package libpulse0:amd64.
+2026-11-15T12:56:00.9595538Z Preparing to unpack .../28-libpulse0_1%3a17.0+dfsg1-2ubuntu4_amd64v3.deb ...
+2026-11-15T12:56:00.9600573Z Unpacking libpulse0:amd64 (1:17.0+dfsg1-2ubuntu4) ...
+2026-11-15T12:56:00.9768791Z Selecting previously unselected package libspeex1:amd64.
+2026-11-15T12:56:00.9859941Z Preparing to unpack .../29-libspeex1_1.2.1-3build1_amd64v3.deb ...
+2026-11-15T12:56:00.9864405Z Unpacking libspeex1:amd64 (1.2.1-3build1) ...
+2026-11-15T12:56:01.0006525Z Selecting previously unselected package libtheora1:amd64.
+2026-11-15T12:56:01.0096731Z Preparing to unpack .../30-libtheora1_1.2.0+dfsg-6_amd64v3.deb ...
+2026-11-15T12:56:01.0101006Z Unpacking libtheora1:amd64 (1.2.0+dfsg-6) ...
+2026-11-15T12:56:01.0248538Z Selecting previously unselected package libshout3:amd64.
+2026-11-15T12:56:01.0340266Z Preparing to unpack .../31-libshout3_2.4.6-1build3_amd64v3.deb ...
+2026-11-15T12:56:01.0343801Z Unpacking libshout3:amd64 (2.4.6-1build3) ...
+2026-11-15T12:56:01.0486758Z Selecting previously unselected package libtag2:amd64.
+2026-11-15T12:56:01.0580486Z Preparing to unpack .../32-libtag2_2.2.1-3_amd64v3.deb ...
+2026-11-15T12:56:01.0585575Z Unpacking libtag2:amd64 (2.2.1-3) ...
+2026-11-15T12:56:01.0760095Z Selecting previously unselected package libtwolame0:amd64.
+2026-11-15T12:56:01.0856513Z Preparing to unpack .../33-libtwolame0_0.4.0-2build4_amd64v3.deb ...
+2026-11-15T12:56:01.0861444Z Unpacking libtwolame0:amd64 (0.4.0-2build4) ...
+2026-11-15T12:56:01.1008189Z Selecting previously unselected package libv4lconvert0t64:amd64.
+2026-11-15T12:56:01.1104616Z Preparing to unpack .../34-libv4lconvert0t64_1.32.0-2ubuntu1_amd64v3.deb ...
+2026-11-15T12:56:01.1109411Z Unpacking libv4lconvert0t64:amd64 (1.32.0-2ubuntu1) ...
+2026-11-15T12:56:01.1255597Z Selecting previously unselected package libv4l-0t64:amd64.
+2026-11-15T12:56:01.1362327Z Preparing to unpack .../35-libv4l-0t64_1.32.0-2ubuntu1_amd64v3.deb ...
+2026-11-15T12:56:01.1367344Z Unpacking libv4l-0t64:amd64 (1.32.0-2ubuntu1) ...
+2026-11-15T12:56:01.1528440Z Selecting previously unselected package libvpx12:amd64.
+2026-11-15T12:56:01.1623397Z Preparing to unpack .../36-libvpx12_1.16.0-3_amd64v3.deb ...
+2026-11-15T12:56:01.1628229Z Unpacking libvpx12:amd64 (1.16.0-3) ...
+2026-11-15T12:56:01.1895763Z Selecting previously unselected package libwavpack1:amd64.
+2026-11-15T12:56:01.1991685Z Preparing to unpack .../37-libwavpack1_5.9.0-1_amd64v3.deb ...
+2026-11-15T12:56:01.1995650Z Unpacking libwavpack1:amd64 (5.9.0-1) ...
+2026-11-15T12:56:01.2133998Z Selecting previously unselected package libsoup-3.0-common.
+2026-11-15T12:56:01.2228523Z Preparing to unpack .../38-libsoup-3.0-common_3.6.6-1ubuntu0.3_all.deb ...
+2026-11-15T12:56:01.2232771Z Unpacking libsoup-3.0-common (3.6.6-1ubuntu0.3) ...
+2026-11-15T12:56:01.2369423Z Selecting previously unselected package libsoup-3.0-0:amd64.
+2026-11-15T12:56:01.2463802Z Preparing to unpack .../39-libsoup-3.0-0_3.6.6-1ubuntu0.3_amd64v3.deb ...
+2026-11-15T12:56:01.2468201Z Unpacking libsoup-3.0-0:amd64 (3.6.6-1ubuntu0.3) ...
+2026-11-15T12:56:01.2626921Z Selecting previously unselected package gstreamer1.0-plugins-good:amd64.
+2026-11-15T12:56:01.2720859Z Preparing to unpack .../40-gstreamer1.0-plugins-good_1.28.2-2ubuntu0.4_amd64v3.deb ...
+2026-11-15T12:56:01.2725370Z Unpacking gstreamer1.0-plugins-good:amd64 (1.28.2-2ubuntu0.4) ...
+2026-11-15T12:56:01.3144392Z Selecting previously unselected package libxv1:amd64.
+2026-11-15T12:56:01.3239057Z Preparing to unpack .../41-libxv1_2%3a1.0.13-1_amd64v3.deb ...
+2026-11-15T12:56:01.3243757Z Unpacking libxv1:amd64 (2:1.0.13-1) ...
+2026-11-15T12:56:01.3374306Z Selecting previously unselected package gstreamer1.0-x:amd64.
+2026-11-15T12:56:01.3469743Z Preparing to unpack .../42-gstreamer1.0-x_1.28.2-1ubuntu0.2_amd64v3.deb ...
+2026-11-15T12:56:01.3473731Z Unpacking gstreamer1.0-x:amd64 (1.28.2-1ubuntu0.2) ...
+2026-11-15T12:56:01.3614258Z Selecting previously unselected package ipxe-qemu.
+2026-11-15T12:56:01.3709694Z Preparing to unpack .../43-ipxe-qemu_1.21.1+git-20250829.969ce2c55+dfsg-3ubuntu2_all.deb ...
+2026-11-15T12:56:01.3714074Z Unpacking ipxe-qemu (1.21.1+git-20250829.969ce2c55+dfsg-3ubuntu2) ...
+2026-11-15T12:56:01.3965161Z Selecting previously unselected package ipxe-qemu-256k-compat-efi-roms.
+2026-11-15T12:56:01.4061107Z Preparing to unpack .../44-ipxe-qemu-256k-compat-efi-roms_1.0.0+git-20150424.a25a16d-0ubuntu7_all.deb ...
+2026-11-15T12:56:01.4065446Z Unpacking ipxe-qemu-256k-compat-efi-roms (1.0.0+git-20150424.a25a16d-0ubuntu7) ...
+2026-11-15T12:56:01.4237214Z Selecting previously unselected package libbrlapi0.8:amd64.
+2026-11-15T12:56:01.4332493Z Preparing to unpack .../45-libbrlapi0.8_6.7-1ubuntu6_amd64v3.deb ...
+2026-11-15T12:56:01.4336609Z Unpacking libbrlapi0.8:amd64 (6.7-1ubuntu6) ...
+2026-11-15T12:56:01.4473813Z Selecting previously unselected package libpcsclite1:amd64.
+2026-11-15T12:56:01.4566067Z Preparing to unpack .../46-libpcsclite1_2.4.1-1_amd64v3.deb ...
+2026-11-15T12:56:01.4570267Z Unpacking libpcsclite1:amd64 (2.4.1-1) ...
+2026-11-15T12:56:01.4702223Z Selecting previously unselected package libcacard0:amd64.
+2026-11-15T12:56:01.4794123Z Preparing to unpack .../47-libcacard0_1%3a2.8.1-2_amd64v3.deb ...
+2026-11-15T12:56:01.4798552Z Unpacking libcacard0:amd64 (1:2.8.1-2) ...
+2026-11-15T12:56:01.4935848Z Selecting previously unselected package libdecor-0-0:amd64.
+2026-11-15T12:56:01.5027886Z Preparing to unpack .../48-libdecor-0-0_0.2.5-1_amd64v3.deb ...
+2026-11-15T12:56:01.5031842Z Unpacking libdecor-0-0:amd64 (0.2.5-1) ...
+2026-11-15T12:56:01.5166962Z Selecting previously unselected package libdecor-0-plugin-1-gtk:amd64.
+2026-11-15T12:56:01.5251571Z Preparing to unpack .../49-libdecor-0-plugin-1-gtk_0.2.5-1_amd64v3.deb ...
+2026-11-15T12:56:01.5254993Z Unpacking libdecor-0-plugin-1-gtk:amd64 (0.2.5-1) ...
+2026-11-15T12:56:01.5392996Z Selecting previously unselected package libfftw3-single3:amd64.
+2026-11-15T12:56:01.5485461Z Preparing to unpack .../50-libfftw3-single3_3.3.10-2fakesync1build3_amd64v3.deb ...
+2026-11-15T12:56:01.5490484Z Unpacking libfftw3-single3:amd64 (3.3.10-2fakesync1build3) ...
+2026-11-15T12:56:01.5715061Z Selecting previously unselected package libiscsi7:amd64.
+2026-11-15T12:56:01.5808611Z Preparing to unpack .../51-libiscsi7_1.20.0-4build1_amd64v3.deb ...
+2026-11-15T12:56:01.5813553Z Unpacking libiscsi7:amd64 (1.20.0-4build1) ...
+2026-11-15T12:56:01.5956776Z Selecting previously unselected package libsamplerate0:amd64.
+2026-11-15T12:56:01.6049304Z Preparing to unpack .../52-libsamplerate0_0.2.2-4build2_amd64v3.deb ...
+2026-11-15T12:56:01.6053061Z Unpacking libsamplerate0:amd64 (0.2.2-4build2) ...
+2026-11-15T12:56:01.6236985Z Selecting previously unselected package libjack-jackd2-0:amd64.
+2026-11-15T12:56:01.6333958Z Preparing to unpack .../53-libjack-jackd2-0_1.9.22~dfsg-5build1_amd64v3.deb ...
+2026-11-15T12:56:01.6334754Z Unpacking libjack-jackd2-0:amd64 (1.9.22~dfsg-5build1) ...
+2026-11-15T12:56:01.6509867Z Selecting previously unselected package libwebrtc-audio-processing-1-3:amd64.
+2026-11-15T12:56:01.6603654Z Preparing to unpack .../54-libwebrtc-audio-processing-1-3_1.3-3build2_amd64v3.deb ...
+2026-11-15T12:56:01.6608586Z Unpacking libwebrtc-audio-processing-1-3:amd64 (1.3-3build2) ...
+2026-11-15T12:56:01.6778751Z Selecting previously unselected package libspa-0.2-modules:amd64.
+2026-11-15T12:56:01.6872950Z Preparing to unpack .../55-libspa-0.2-modules_1.6.2-1ubuntu1.2_amd64v3.deb ...
+2026-11-15T12:56:01.6878268Z Unpacking libspa-0.2-modules:amd64 (1.6.2-1ubuntu1.2) ...
+2026-11-15T12:56:01.7154186Z Selecting previously unselected package libpipewire-0.3-0t64:amd64.
+2026-11-15T12:56:01.7249163Z Preparing to unpack .../56-libpipewire-0.3-0t64_1.6.2-1ubuntu1.2_amd64v3.deb ...
+2026-11-15T12:56:01.7253856Z Unpacking libpipewire-0.3-0t64:amd64 (1.6.2-1ubuntu1.2) ...
+2026-11-15T12:56:01.7416246Z Selecting previously unselected package libpipewire-0.3-common.
+2026-11-15T12:56:01.7514264Z Preparing to unpack .../57-libpipewire-0.3-common_1.6.2-1ubuntu1.2_all.deb ...
+2026-11-15T12:56:01.7518685Z Unpacking libpipewire-0.3-common (1.6.2-1ubuntu1.2) ...
+2026-11-15T12:56:01.7652578Z Selecting previously unselected package libsdl2-classic:amd64.
+2026-11-15T12:56:01.7748620Z Preparing to unpack .../58-libsdl2-classic_2.32.10+dfsg-6_amd64v3.deb ...
+2026-11-15T12:56:01.7753385Z Unpacking libsdl2-classic:amd64 (2.32.10+dfsg-6) ...
+2026-11-15T12:56:01.7957512Z Selecting previously unselected package libsdl2-2.0-0:amd64.
+2026-11-15T12:56:01.8052356Z Preparing to unpack .../59-libsdl2-2.0-0_2.32.10+dfsg-6_amd64v3.deb ...
+2026-11-15T12:56:01.8057824Z Unpacking libsdl2-2.0-0:amd64 (2.32.10+dfsg-6) ...
+2026-11-15T12:56:01.8189044Z Selecting previously unselected package libsimdutf31:amd64.
+2026-11-15T12:56:01.8283598Z Preparing to unpack .../60-libsimdutf31_8.0.0-1_amd64v3.deb ...
+2026-11-15T12:56:01.8287798Z Unpacking libsimdutf31:amd64 (8.0.0-1) ...
+2026-11-15T12:56:01.8434978Z Selecting previously unselected package libspice-server1:amd64.
+2026-11-15T12:56:01.8528416Z Preparing to unpack .../61-libspice-server1_0.16.0-1_amd64v3.deb ...
+2026-11-15T12:56:01.8532779Z Unpacking libspice-server1:amd64 (0.16.0-1) ...
+2026-11-15T12:56:01.8709130Z Selecting previously unselected package libssh-4:amd64.
+2026-11-15T12:56:01.8801925Z Preparing to unpack .../62-libssh-4_0.11.3-1ubuntu2.1_amd64v3.deb ...
+2026-11-15T12:56:01.8806667Z Unpacking libssh-4:amd64 (0.11.3-1ubuntu2.1) ...
+2026-11-15T12:56:01.8964266Z Selecting previously unselected package libusbredirparser1t64:amd64.
+2026-11-15T12:56:01.9055516Z Preparing to unpack .../63-libusbredirparser1t64_0.15.0-1build1_amd64v3.deb ...
+2026-11-15T12:56:01.9060726Z Unpacking libusbredirparser1t64:amd64 (0.15.0-1build1) ...
+2026-11-15T12:56:01.9197649Z Selecting previously unselected package libva2:amd64.
+2026-11-15T12:56:01.9288623Z Preparing to unpack .../64-libva2_2.23.0-1ubuntu1_amd64v3.deb ...
+2026-11-15T12:56:01.9293581Z Unpacking libva2:amd64 (2.23.0-1ubuntu1) ...
+2026-11-15T12:56:01.9436472Z Selecting previously unselected package libva-drm2:amd64.
+2026-11-15T12:56:01.9527920Z Preparing to unpack .../65-libva-drm2_2.23.0-1ubuntu1_amd64v3.deb ...
+2026-11-15T12:56:01.9531981Z Unpacking libva-drm2:amd64 (2.23.0-1ubuntu1) ...
+2026-11-15T12:56:01.9664521Z Selecting previously unselected package libvirglrenderer1:amd64.
+2026-11-15T12:56:01.9756206Z Preparing to unpack .../66-libvirglrenderer1_1.2.0-2ubuntu2_amd64v3.deb ...
+2026-11-15T12:56:01.9760901Z Unpacking libvirglrenderer1:amd64 (1.2.0-2ubuntu2) ...
+2026-11-15T12:56:01.9914222Z Selecting previously unselected package libvte-2.91-common.
+2026-11-15T12:56:02.0005992Z Preparing to unpack .../67-libvte-2.91-common_0.84.0-2_amd64v3.deb ...
+2026-11-15T12:56:02.0010446Z Unpacking libvte-2.91-common (0.84.0-2) ...
+2026-11-15T12:56:02.0144449Z Selecting previously unselected package libvte-2.91-0:amd64.
+2026-11-15T12:56:02.0236380Z Preparing to unpack .../68-libvte-2.91-0_0.84.0-2_amd64v3.deb ...
+2026-11-15T12:56:02.0240937Z Unpacking libvte-2.91-0:amd64 (0.84.0-2) ...
+2026-11-15T12:56:02.0406506Z Selecting previously unselected package ubuntu-helper-virt-hwe.
+2026-11-15T12:56:02.0498000Z Preparing to unpack .../69-ubuntu-helper-virt-hwe_1%3a10.2.1+ds-1ubuntu4.4_all.deb ...
+2026-11-15T12:56:02.0503105Z Unpacking ubuntu-helper-virt-hwe (1:10.2.1+ds-1ubuntu4.4) ...
+2026-11-15T12:56:02.0637490Z Selecting previously unselected package ubuntu-virt.
+2026-11-15T12:56:02.0731322Z Preparing to unpack .../70-ubuntu-virt_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+2026-11-15T12:56:02.0734776Z Unpacking ubuntu-virt (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.0862633Z Selecting previously unselected package ovmf-amdsev.
+2026-11-15T12:56:02.0955917Z Preparing to unpack .../71-ovmf-amdsev_2025.11-3ubuntu7.3_all.deb ...
+2026-11-15T12:56:02.0959629Z Unpacking ovmf-amdsev (2025.11-3ubuntu7.3) ...
+2026-11-15T12:56:02.1179983Z Selecting previously unselected package ovmf-generic.
+2026-11-15T12:56:02.1273052Z Preparing to unpack .../72-ovmf-generic_2025.11-3ubuntu7.3_all.deb ...
+2026-11-15T12:56:02.1276472Z Unpacking ovmf-generic (2025.11-3ubuntu7.3) ...
+2026-11-15T12:56:02.1687611Z Selecting previously unselected package ovmf-inteltdx.
+2026-11-15T12:56:02.1785414Z Preparing to unpack .../73-ovmf-inteltdx_2025.11-3ubuntu7.3_all.deb ...
+2026-11-15T12:56:02.1789215Z Unpacking ovmf-inteltdx (2025.11-3ubuntu7.3) ...
+2026-11-15T12:56:02.2038145Z Selecting previously unselected package qemu-system-common.
+2026-11-15T12:56:02.2134723Z Preparing to unpack .../74-qemu-system-common_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+2026-11-15T12:56:02.2139301Z Unpacking qemu-system-common (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.2469923Z Selecting previously unselected package qemu-utils.
+2026-11-15T12:56:02.2567961Z Preparing to unpack .../75-qemu-utils_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+2026-11-15T12:56:02.2572324Z Unpacking qemu-utils (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.3130014Z Selecting previously unselected package qemu-block-extra.
+2026-11-15T12:56:02.3232467Z Preparing to unpack .../76-qemu-block-extra_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+2026-11-15T12:56:02.3237260Z Unpacking qemu-block-extra (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.3384854Z Selecting previously unselected package qemu-system-data.
+2026-11-15T12:56:02.3485514Z Preparing to unpack .../77-qemu-system-data_1%3a10.2.1+ds-1ubuntu3.3_all.deb ...
+2026-11-15T12:56:02.3490033Z Unpacking qemu-system-data (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.4237549Z Selecting previously unselected package qemu-system-modules-opengl.
+2026-11-15T12:56:02.4339319Z Preparing to unpack .../78-qemu-system-modules-opengl_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+2026-11-15T12:56:02.4342771Z Unpacking qemu-system-modules-opengl (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.4501246Z Selecting previously unselected package qemu-system-gui.
+2026-11-15T12:56:02.4599996Z Preparing to unpack .../79-qemu-system-gui_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+2026-11-15T12:56:02.4604493Z Unpacking qemu-system-gui (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.4780199Z Selecting previously unselected package qemu-system-modules-spice.
+2026-11-15T12:56:02.4877316Z Preparing to unpack .../80-qemu-system-modules-spice_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+2026-11-15T12:56:02.4881970Z Unpacking qemu-system-modules-spice (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.5025706Z Selecting previously unselected package libfdt1:amd64.
+2026-11-15T12:56:02.5123135Z Preparing to unpack .../81-libfdt1_1.7.2-2ubuntu1_amd64v3.deb ...
+2026-11-15T12:56:02.5128243Z Unpacking libfdt1:amd64 (1.7.2-2ubuntu1) ...
+2026-11-15T12:56:02.5315651Z Selecting previously unselected package seabios.
+2026-11-15T12:56:02.5410534Z Preparing to unpack .../82-seabios_1.17.0-1ubuntu1_all.deb ...
+2026-11-15T12:56:02.5415841Z Unpacking seabios (1.17.0-1ubuntu1) ...
+2026-11-15T12:56:02.5581410Z Selecting previously unselected package qemu-system-x86.
+2026-11-15T12:56:02.5678830Z Preparing to unpack .../83-qemu-system-x86_1%3a10.2.1+ds-1ubuntu3.3_amd64v3.deb ...
+2026-11-15T12:56:02.5749455Z Unpacking qemu-system-x86 (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.7735110Z Selecting previously unselected package virgl-server.
+2026-11-15T12:56:02.7831749Z Preparing to unpack .../84-virgl-server_1.2.0-2ubuntu2_amd64v3.deb ...
+2026-11-15T12:56:02.7836940Z Unpacking virgl-server (1.2.0-2ubuntu2) ...
+2026-11-15T12:56:02.7993608Z Selecting previously unselected package ovmf.
+2026-11-15T12:56:02.8091735Z Preparing to unpack .../85-ovmf_2025.11-3ubuntu7.3_all.deb ...
+2026-11-15T12:56:02.8095855Z Unpacking ovmf (2025.11-3ubuntu7.3) ...
+2026-11-15T12:56:02.8347854Z Setting up libpipewire-0.3-common (1.6.2-1ubuntu1.2) ...
+2026-11-15T12:56:02.8359281Z Setting up libcdparanoia0:amd64 (3.10.2+debian-14ubuntu2) ...
+2026-11-15T12:56:02.8368578Z Setting up libraw1394-11:amd64 (2.1.2-2build4) ...
+2026-11-15T12:56:02.8379841Z Setting up libproxy1v5:amd64 (0.5.12-1) ...
+2026-11-15T12:56:02.8390277Z Setting up libfftw3-single3:amd64 (3.3.10-2fakesync1build3) ...
+2026-11-15T12:56:02.8401195Z Setting up libspeex1:amd64 (1.2.1-3build1) ...
+2026-11-15T12:56:02.8411461Z Setting up libcaca0:amd64 (0.99.beta20-6ubuntu2.1) ...
+2026-11-15T12:56:02.8421656Z Setting up user-session-migration (0.5.1) ...
+2026-11-15T12:56:02.9276479Z Created symlink '/etc/systemd/user/graphical-session-pre.target.wants/user-session-migration.service' → '/usr/lib/systemd/user/user-session-migration.service'.
+2026-11-15T12:56:02.9277039Z 
+2026-11-15T12:56:02.9300252Z Setting up libv4lconvert0t64:amd64 (1.32.0-2ubuntu1) ...
+2026-11-15T12:56:02.9310485Z Setting up libtwolame0:amd64 (0.4.0-2build4) ...
+2026-11-15T12:56:02.9322760Z Setting up libvte-2.91-common (0.84.0-2) ...
+2026-11-15T12:56:02.9340335Z Setting up libvisual-0.4-0:amd64 (0.4.2-4) ...
+2026-11-15T12:56:02.9350765Z Setting up libtag2:amd64 (2.2.1-3) ...
+2026-11-15T12:56:02.9360550Z Setting up ubuntu-helper-virt-hwe (1:10.2.1+ds-1ubuntu4.4) ...
+2026-11-15T12:56:02.9376878Z Setting up msr-tools (1.3+git20220805.7d78c80-1ubuntu0.1) ...
+2026-11-15T12:56:02.9387290Z Setting up libsoup-3.0-common (3.6.6-1ubuntu0.3) ...
+2026-11-15T12:56:02.9398900Z Setting up libmpg123-0t64:amd64 (1.33.3-2) ...
+2026-11-15T12:56:02.9409231Z Setting up libfdt1:amd64 (1.7.2-2ubuntu1) ...
+2026-11-15T12:56:02.9421342Z Setting up libwebrtc-audio-processing-1-3:amd64 (1.3-3build2) ...
+2026-11-15T12:56:02.9432258Z Setting up libtheoraenc2:amd64 (1.2.0+dfsg-6) ...
+2026-11-15T12:56:02.9442877Z Setting up liborc-0.4-0t64:amd64 (1:0.4.42-2) ...
+2026-11-15T12:56:02.9454115Z Setting up libtheoradec2:amd64 (1.2.0+dfsg-6) ...
+2026-11-15T12:56:02.9466606Z Setting up libvpx12:amd64 (1.16.0-3) ...
+2026-11-15T12:56:02.9477208Z Setting up libsimdutf31:amd64 (8.0.0-1) ...
+2026-11-15T12:56:02.9487876Z Setting up libva2:amd64 (2.23.0-1ubuntu1) ...
+2026-11-15T12:56:02.9497852Z Setting up libopus0:amd64 (1.6.1-1) ...
+2026-11-15T12:56:02.9508138Z Setting up libxv1:amd64 (2:1.0.13-1) ...
+2026-11-15T12:56:02.9518376Z Setting up libflac14:amd64 (1.5.0+ds-5) ...
+2026-11-15T12:56:02.9529844Z Setting up libdv4t64:amd64 (1.0.0-17.1build2) ...
+2026-11-15T12:56:02.9541492Z Setting up libpcsclite1:amd64 (2.4.1-1) ...
+2026-11-15T12:56:02.9550471Z Setting up libssh-4:amd64 (0.11.3-1ubuntu2.1) ...
+2026-11-15T12:56:02.9558978Z Setting up libv4l-0t64:amd64 (1.32.0-2ubuntu1) ...
+2026-11-15T12:56:02.9567244Z Setting up libtheora1:amd64 (1.2.0+dfsg-6) ...
+2026-11-15T12:56:02.9574459Z Setting up cpu-checker (0.7-1.4build1) ...
+2026-11-15T12:56:02.9584530Z Setting up libva-drm2:amd64 (2.23.0-1ubuntu1) ...
+2026-11-15T12:56:02.9592010Z Setting up libasyncns0:amd64 (0.8-7) ...
+2026-11-15T12:56:02.9599543Z Setting up libwavpack1:amd64 (5.9.0-1) ...
+2026-11-15T12:56:02.9608111Z Setting up libusbredirparser1t64:amd64 (0.15.0-1build1) ...
+2026-11-15T12:56:02.9615777Z Setting up ipxe-qemu (1.21.1+git-20250829.969ce2c55+dfsg-3ubuntu2) ...
+2026-11-15T12:56:02.9624796Z Setting up libdecor-0-0:amd64 (0.2.5-1) ...
+2026-11-15T12:56:02.9632867Z Setting up ipxe-qemu-256k-compat-efi-roms (1.0.0+git-20150424.a25a16d-0ubuntu7) ...
+2026-11-15T12:56:02.9640200Z Setting up libbrlapi0.8:amd64 (6.7-1ubuntu6) ...
+2026-11-15T12:56:02.9649615Z Setting up glib-networking-common (2.80.1-1build2) ...
+2026-11-15T12:56:02.9656765Z Setting up libiscsi7:amd64 (1.20.0-4build1) ...
+2026-11-15T12:56:02.9664725Z Setting up libsamplerate0:amd64 (0.2.2-4build2) ...
+2026-11-15T12:56:02.9672692Z Setting up libdecor-0-plugin-1-gtk:amd64 (0.2.5-1) ...
+2026-11-15T12:56:02.9682433Z Setting up libmp3lame0:amd64 (3.101~svn6525+dfsg-2ubuntu0.1) ...
+2026-11-15T12:56:02.9690307Z Setting up libvorbisenc2:amd64 (1.3.7-3build2) ...
+2026-11-15T12:56:02.9699007Z Setting up libaa1:amd64 (1.4p5-51.1build1) ...
+2026-11-15T12:56:02.9709116Z Setting up libiec61883-0:amd64 (1.2.0-8) ...
+2026-11-15T12:56:02.9718037Z Setting up libavc1394-0:amd64 (0.5.4-5build4) ...
+2026-11-15T12:56:02.9726326Z Setting up gsettings-desktop-schemas (50.0-1ubuntu2) ...
+2026-11-15T12:56:02.9735249Z Setting up ubuntu-virt (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.9743231Z Setting up glib-networking-services (2.80.1-1build2) ...
+2026-11-15T12:56:02.9751431Z Setting up ovmf-inteltdx (2025.11-3ubuntu7.3) ...
+2026-11-15T12:56:02.9759555Z Setting up libgstreamer-plugins-base1.0-0:amd64 (1.28.2-1ubuntu0.2) ...
+2026-11-15T12:56:02.9768253Z Setting up libvte-2.91-0:amd64 (0.84.0-2) ...
+2026-11-15T12:56:02.9776637Z Setting up libcacard0:amd64 (1:2.8.1-2) ...
+2026-11-15T12:56:02.9784933Z Setting up gstreamer1.0-plugins-base:amd64 (1.28.2-1ubuntu0.2) ...
+2026-11-15T12:56:02.9794112Z Setting up libvirglrenderer1:amd64 (1.2.0-2ubuntu2) ...
+2026-11-15T12:56:02.9802410Z Setting up libshout3:amd64 (2.4.6-1build3) ...
+2026-11-15T12:56:02.9810571Z Setting up ovmf-amdsev (2025.11-3ubuntu7.3) ...
+2026-11-15T12:56:02.9819509Z Setting up qemu-system-data (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.9827461Z Setting up seabios (1.17.0-1ubuntu1) ...
+2026-11-15T12:56:02.9836236Z Setting up libjack-jackd2-0:amd64 (1.9.22~dfsg-5build1) ...
+2026-11-15T12:56:02.9844112Z Setting up libsndfile1:amd64 (1.2.2-4) ...
+2026-11-15T12:56:02.9852304Z Setting up qemu-utils (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.9861875Z Setting up ovmf-generic (2025.11-3ubuntu7.3) ...
+2026-11-15T12:56:02.9870138Z Setting up qemu-block-extra (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:02.9896948Z Setting up gstreamer1.0-x:amd64 (1.28.2-1ubuntu0.2) ...
+2026-11-15T12:56:02.9906269Z Setting up qemu-system-common (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:03.0631076Z Created symlink '/etc/systemd/system/multi-user.target.wants/qemu-kvm.service' → '/usr/lib/systemd/system/qemu-kvm.service'.
+2026-11-15T12:56:03.0631541Z 
+2026-11-15T12:56:03.2716244Z Setting up libpulse0:amd64 (1:17.0+dfsg1-2ubuntu4) ...
+2026-11-15T12:56:03.2728910Z Setting up libspice-server1:amd64 (0.16.0-1) ...
+2026-11-15T12:56:03.2738530Z Setting up qemu-system-x86 (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:03.2790053Z Setting up virgl-server (1.2.0-2ubuntu2) ...
+2026-11-15T12:56:03.2798392Z Setting up ovmf (2025.11-3ubuntu7.3) ...
+2026-11-15T12:56:03.2804629Z Setting up libspa-0.2-modules:amd64 (1.6.2-1ubuntu1.2) ...
+2026-11-15T12:56:03.2814240Z Setting up libpipewire-0.3-0t64:amd64 (1.6.2-1ubuntu1.2) ...
+2026-11-15T12:56:03.2823870Z Setting up qemu-system-modules-opengl (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:03.2831902Z Setting up libsdl2-classic:amd64 (2.32.10+dfsg-6) ...
+2026-11-15T12:56:03.2841077Z Setting up qemu-system-modules-spice (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:03.2851962Z Setting up libsdl2-2.0-0:amd64 (2.32.10+dfsg-6) ...
+2026-11-15T12:56:03.2918042Z Setting up qemu-system-gui (1:10.2.1+ds-1ubuntu3.3) ...
+2026-11-15T12:56:03.2987752Z Processing triggers for libc-bin (2.43-2ubuntu2.4) ...
+2026-11-15T12:56:08.2283292Z Processing triggers for man-db (2.13.1-1build1) ...
+2026-11-15T12:56:08.2307238Z Not building database; man-db/auto-update is not 'true'.
+2026-11-15T12:56:08.2316692Z Processing triggers for libglib2.0-0t64:amd64 (2.88.0-1ubuntu0.1) ...
+2026-11-15T12:56:08.2506640Z Setting up glib-networking:amd64 (2.80.1-1build2) ...
+2026-11-15T12:56:08.2516047Z Processing triggers for hicolor-icon-theme (0.18-2build1) ...
+2026-11-15T12:56:09.0943477Z Setting up libsoup-3.0-0:amd64 (3.6.6-1ubuntu0.3) ...
+2026-11-15T12:56:09.0966914Z Setting up gstreamer1.0-plugins-good:amd64 (1.28.2-2ubuntu0.4) ...
+2026-11-15T12:56:09.0981110Z Processing triggers for libc-bin (2.43-2ubuntu2.4) ...
+2026-11-15T12:56:09.9390221Z 
+2026-11-15T12:56:09.9390879Z Running kernel seems to be up-to-date.
+2026-11-15T12:56:09.9392327Z 
+2026-11-15T12:56:09.9393084Z Restarting services...
+2026-11-15T12:56:09.9456772Z 
+2026-11-15T12:56:09.9457308Z Service restarts being deferred:
+2026-11-15T12:56:09.9462775Z  systemctl restart hosted-compute-agent.service
+2026-11-15T12:56:09.9463007Z 
+2026-11-15T12:56:09.9463157Z No containers need to be restarted.
+2026-11-15T12:56:09.9463340Z 
+2026-11-15T12:56:09.9466656Z No user sessions are running outdated binaries.
+2026-11-15T12:56:09.9466906Z 
+2026-11-15T12:56:09.9467071Z No VM guests are running outdated hypervisor (qemu) binaries on this host.
+2026-11-15T12:56:10.5747083Z ##[group]Run echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+2026-11-15T12:56:10.5747767Z [36;1mecho 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules[0m
+2026-11-15T12:56:10.5748244Z [36;1msudo udevadm control --reload-rules[0m
+2026-11-15T12:56:10.5748564Z [36;1msudo udevadm trigger --name-match=kvm[0m
+2026-11-15T12:56:10.5748849Z [36;1mls -l /dev/kvm[0m
+2026-11-15T12:56:10.5766361Z shell: /usr/bin/bash -e {0}
+2026-11-15T12:56:10.5766696Z ##[endgroup]
+2026-11-15T12:56:10.5854770Z KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"
+2026-11-15T12:56:10.6158636Z crw-rw-rw- 1 root kvm 10, 232 Nov 15 12:56 /dev/kvm
+2026-11-15T12:56:10.6185488Z ##[group]Run B=https://storage.googleapis.com/kernelctf-build/releases
+2026-11-15T12:56:10.6185953Z [36;1mB=https://storage.googleapis.com/kernelctf-build/releases[0m
+2026-11-15T12:56:10.6186545Z [36;1mcurl -fsSL "$B/lts-6.12.116-kasan/bzImage" -o bz-kasan[0m
+2026-11-15T12:56:10.6186934Z [36;1mcurl -fsSL "$B/hardened-v1-7.2-rc5/bzImage" -o bz-hardened[0m
+2026-11-15T12:56:10.6187261Z [36;1mls -lh bz-kasan bz-hardened[0m
+2026-11-15T12:56:10.6201829Z shell: /usr/bin/bash -e {0}
+2026-11-15T12:56:10.6202227Z ##[endgroup]
+2026-11-15T12:56:11.1888656Z -rw-r--r-- 1 runner runner 30M Nov 15 12:56 bz-hardened
+2026-11-15T12:56:11.1889105Z -rw-r--r-- 1 runner runner 51M Nov 15 12:56 bz-kasan
+2026-11-15T12:56:11.1919422Z ##[group]Run mkdir -p out
+2026-11-15T12:56:11.1919768Z [36;1mmkdir -p out[0m
+2026-11-15T12:56:11.1919996Z [36;1mfail=0[0m
+2026-11-15T12:56:11.1920265Z [36;1mfor f in pocs/*.c; do[0m
+2026-11-15T12:56:11.1920525Z [36;1m  n=$(basename "$f" .c)[0m
+2026-11-15T12:56:11.1920986Z [36;1m  if gcc -static -O2 -w -o "out/$n" "$f"; then[0m
+2026-11-15T12:56:11.1921296Z [36;1m    echo "BUILD_OK $n"[0m
+2026-11-15T12:56:11.1921538Z [36;1m  else[0m
+2026-11-15T12:56:11.1921793Z [36;1m    echo "BUILD_FAIL $n"[0m
+2026-11-15T12:56:11.1922069Z [36;1m    fail=1[0m
+2026-11-15T12:56:11.1922285Z [36;1m  fi[0m
+2026-11-15T12:56:11.1922497Z [36;1mdone[0m
+2026-11-15T12:56:11.1922705Z [36;1mls -la out[0m
+2026-11-15T12:56:11.1922949Z [36;1mexit $fail[0m
+2026-11-15T12:56:11.1940330Z shell: /usr/bin/bash -e {0}
+2026-11-15T12:56:11.1940661Z ##[endgroup]
+2026-11-15T12:56:14.0063804Z BUILD_OK 00_probe
+2026-11-15T12:56:14.1227688Z BUILD_OK 01_afalg_err
+2026-11-15T12:56:14.2471707Z BUILD_OK 02_sheaf_netlink
+2026-11-15T12:56:14.5513362Z BUILD_OK 03_sheaf_stress
+2026-11-15T12:56:14.7015771Z BUILD_OK 04_mqueue_leak
+2026-11-15T12:56:14.7041723Z total 4264
+2026-11-15T12:56:14.7042208Z drwxr-xr-x 2 runner runner   4096 Nov 15 12:56 .
+2026-11-15T12:56:14.7042571Z drwxr-xr-x 7 runner runner   4096 Nov 15 12:56 ..
+2026-11-15T12:56:14.7043000Z -rwxr-xr-x 1 runner runner 791048 Nov 15 12:56 00_probe
+2026-11-15T12:56:14.7043379Z -rwxr-xr-x 1 runner runner 795376 Nov 15 12:56 01_afalg_err
+2026-11-15T12:56:14.7043786Z -rwxr-xr-x 1 runner runner 921176 Nov 15 12:56 02_sheaf_netlink
+2026-11-15T12:56:14.7044215Z -rwxr-xr-x 1 runner runner 907672 Nov 15 12:56 03_sheaf_stress
+2026-11-15T12:56:14.7044641Z -rwxr-xr-x 1 runner runner 932504 Nov 15 12:56 04_mqueue_leak
+2026-11-15T12:56:14.7081451Z ##[group]Run rm -rf rootfs
+2026-11-15T12:56:14.7081895Z [36;1mrm -rf rootfs[0m
+2026-11-15T12:56:14.7082374Z [36;1mmkdir -p rootfs/bin rootfs/poc rootfs/proc rootfs/sys rootfs/dev rootfs/tmp rootfs/etc[0m
+2026-11-15T12:56:14.7083093Z [36;1mcp /bin/busybox rootfs/bin/busybox[0m
+2026-11-15T12:56:14.7083690Z [36;1mfor a in sh mount cat grep tr cut ls uname echo poweroff sleep setuidgid dmesg head tail wc; do[0m
+2026-11-15T12:56:14.7084273Z [36;1m  ln -sf busybox "rootfs/bin/$a"[0m
+2026-11-15T12:56:14.7084643Z [36;1mdone[0m
+2026-11-15T12:56:14.7084962Z [36;1mcp out/* rootfs/poc/[0m
+2026-11-15T12:56:14.7085377Z [36;1mgcc -static -O2 -w -o rootfs/bin/runas runner/runas.c[0m
+2026-11-15T12:56:14.7085868Z [36;1mcp runner/init rootfs/init[0m
+2026-11-15T12:56:14.7086675Z [36;1mprintf 'root:x:0:0:root:/root:/bin/sh\nnobody:x:65534:65534:nobody:/:/bin/sh\n' > rootfs/etc/passwd[0m
+2026-11-15T12:56:14.7087457Z [36;1mprintf 'root:x:0:\nnobody:x:65534:\n' > rootfs/etc/group[0m
+2026-11-15T12:56:14.7087935Z [36;1mchmod +x rootfs/init rootfs/bin/busybox[0m
+2026-11-15T12:56:14.7088341Z [36;1mchmod +x rootfs/poc/*[0m
+2026-11-15T12:56:14.7088681Z [36;1mcd rootfs[0m
+2026-11-15T12:56:14.7089110Z [36;1mfind . | cpio -o -H newc 2>/dev/null | gzip -9 > ../initramfs.cpio.gz[0m
+2026-11-15T12:56:14.7089574Z [36;1mcd ..[0m
+2026-11-15T12:56:14.7089900Z [36;1mls -lh initramfs.cpio.gz[0m
+2026-11-15T12:56:14.7113288Z shell: /usr/bin/bash -e {0}
+2026-11-15T12:56:14.7113562Z ##[endgroup]
+2026-11-15T12:56:15.9173968Z -rw-r--r-- 1 runner runner 3.3M Nov 15 12:56 initramfs.cpio.gz
+2026-11-15T12:56:15.9204202Z ##[group]Run mkdir -p results
+2026-11-15T12:56:15.9204521Z [36;1mmkdir -p results[0m
+2026-11-15T12:56:15.9204761Z [36;1mfor f in out/*; do[0m
+2026-11-15T12:56:15.9205025Z [36;1m  n=$(basename "$f")[0m
+2026-11-15T12:56:15.9205300Z [36;1m  echo "=========== $n @ lts-kasan ==========="[0m
+2026-11-15T12:56:15.9205693Z [36;1m  timeout 300 qemu-system-x86_64 -accel kvm -m 3072 -M q35 -smp 2 \[0m
+2026-11-15T12:56:15.9206355Z [36;1m    -cpu host -kernel bz-kasan -initrd initramfs.cpio.gz \[0m
+2026-11-15T12:56:15.9206755Z [36;1m    -append "console=ttyS0 panic=-1 poc=$n" -nographic -no-reboot \[0m
+2026-11-15T12:56:15.9207152Z [36;1m    > "results/$n.kasan.log" 2>&1 || true[0m
+2026-11-15T12:56:15.9207436Z [36;1m  echo "--- verdict ---"[0m
+2026-11-15T12:56:15.9207764Z [36;1m  if grep -q "KASAN:" "results/$n.kasan.log"; then echo "VERDICT $n KASAN"; [0m
+2026-11-15T12:56:15.9208379Z [36;1m  elif grep -qE "kernel panic|BUG:|general protection|Oops" "results/$n.kasan.log"; then echo "VERDICT $n CRASH";[0m
+2026-11-15T12:56:15.9208881Z [36;1m  elif grep -q "POC_OK" "results/$n.kasan.log"; then echo "VERDICT $n OK";[0m
+2026-11-15T12:56:15.9209284Z [36;1m  else echo "VERDICT $n UNKNOWN"; fi[0m
+2026-11-15T12:56:15.9209576Z [36;1m  tail -20 "results/$n.kasan.log" || true[0m
+2026-11-15T12:56:15.9209851Z [36;1mdone[0m
+2026-11-15T12:56:15.9228794Z shell: /usr/bin/bash -e {0}
+2026-11-15T12:56:15.9229064Z ##[endgroup]
+2026-11-15T12:56:15.9300680Z =========== 00_probe @ lts-kasan ===========
+2026-11-15T12:56:18.9246587Z --- verdict ---
+2026-11-15T12:56:18.9278635Z VERDICT 00_probe OK
+2026-11-15T12:56:18.9314016Z SYSCTL /proc/sys/kernel/perf_event_paranoid       2
+2026-11-15T12:56:18.9314536Z SYSCTL /proc/sys/kernel/kptr_restrict             0
+2026-11-15T12:56:18.9314921Z SYSCTL /proc/sys/kernel/dmesg_restrict            1
+2026-11-15T12:56:18.9315278Z SYSCTL /proc/sys/kernel/msgmax                    8192
+2026-11-15T12:56:18.9315745Z SYSCTL /proc/sys/kernel/msgmnb                    16384
+2026-11-15T12:56:18.9316281Z SYSCTL /proc/sys/kernel/keys/maxkeys              200
+2026-11-15T12:56:18.9316712Z SYSCTL /proc/sys/vm/unprivileged_userfaultfd      0
+2026-11-15T12:56:18.9316998Z SURF af_alg OK opfd=4
+2026-11-15T12:56:18.9317279Z SURF af_unix_dgram OK
+2026-11-15T12:56:18.9317513Z SURF af_inet_udp OK
+2026-11-15T12:56:18.9317737Z SURF sysv_msg OK id=0
+2026-11-15T12:56:18.9317985Z SURF userfaultfd ERR errno=1
+2026-11-15T12:56:18.9318228Z SURF dev_kvm ERR
+2026-11-15T12:56:18.9318451Z SURF dev_tun ERR
+2026-11-15T12:56:18.9318685Z POC_OK
+2026-11-15T12:56:18.9318887Z HARNESS_EXIT=0
+2026-11-15T12:56:18.9319303Z HARNESS_DONE
+2026-11-15T12:56:18.9319592Z [    1.890369] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:56:18.9319953Z [    1.891868] kvm: exiting hardware virtualization
+2026-11-15T12:56:18.9320279Z [    1.892959] reboot: Power down
+2026-11-15T12:56:18.9343552Z =========== 01_afalg_err @ lts-kasan ===========
+2026-11-15T12:56:21.8663333Z --- verdict ---
+2026-11-15T12:56:21.8693302Z VERDICT 01_afalg_err OK
+2026-11-15T12:56:21.8712850Z [    1.969097] Freeing unused kernel image (initmem) memory: 9932K
+2026-11-15T12:56:21.8713443Z [    1.970442] Write protecting the kernel read-only data: 110592k
+2026-11-15T12:56:21.8714050Z [    1.972214] Freeing unused kernel image (rodata/data gap) memory: 1364K
+2026-11-15T12:56:21.8714390Z [    1.973657] Run /init as init process
+2026-11-15T12:56:21.8714681Z HARNESS_KERNEL=6.12.116-dirty
+2026-11-15T12:56:21.8714941Z HARNESS_POC=01_afalg_err
+2026-11-15T12:56:21.8715172Z HARNESS_UID_ROOT=0
+2026-11-15T12:56:21.8715411Z HARNESS_START
+2026-11-15T12:56:21.8715645Z ALG opfd=4
+2026-11-15T12:56:21.8715865Z ALG send=512 errno=0
+2026-11-15T12:56:21.8716277Z ALG recv_unmapped=-1 errno=14
+2026-11-15T12:56:21.8716548Z ALG recv_nullpage=-1 errno=14
+2026-11-15T12:56:21.8716771Z ALG recv_protnone=-1 errno=14
+2026-11-15T12:56:21.8717036Z HASH open failed errno=38
+2026-11-15T12:56:21.8717281Z POC_OK
+2026-11-15T12:56:21.8717488Z HARNESS_EXIT=0
+2026-11-15T12:56:21.8717957Z HARNESS_DONE
+2026-11-15T12:56:21.8718244Z [    1.995319] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:56:21.8718622Z [    1.996838] kvm: exiting hardware virtualization
+2026-11-15T12:56:21.8718917Z [    1.997973] reboot: Power down
+2026-11-15T12:56:21.8736272Z =========== 02_sheaf_netlink @ lts-kasan ===========
+2026-11-15T12:56:25.1284469Z --- verdict ---
+2026-11-15T12:56:25.1317289Z VERDICT 02_sheaf_netlink OK
+2026-11-15T12:56:25.1336243Z [    1.972995] cdrom: Uniform CD-ROM driver Revision: 3.20
+2026-11-15T12:56:25.1336801Z [    1.994617] Freeing unused decrypted memory: 2028K
+2026-11-15T12:56:25.1337198Z [    1.997349] Freeing unused kernel image (initmem) memory: 9932K
+2026-11-15T12:56:25.1337595Z [    1.998687] Write protecting the kernel read-only data: 110592k
+2026-11-15T12:56:25.1337978Z [    2.000958] Freeing unused kernel image (rodata/data gap) memory: 1364K
+2026-11-15T12:56:25.1338311Z [    2.002413] Run /init as init process
+2026-11-15T12:56:25.1338579Z HARNESS_KERNEL=6.12.116-dirty
+2026-11-15T12:56:25.1338857Z HARNESS_POC=02_sheaf_netlink
+2026-11-15T12:56:25.1339145Z HARNESS_UID_ROOT=0
+2026-11-15T12:56:25.1339373Z HARNESS_START
+2026-11-15T12:56:25.1339586Z POC start uid=65534
+2026-11-15T12:56:25.1339811Z SYM kmalloc_caches           0000000000000000
+2026-11-15T12:56:25.1340104Z NETLINK sockopt_probe ok=0
+2026-11-15T12:56:25.1340357Z POC done
+2026-11-15T12:56:25.1340555Z POC_OK
+2026-11-15T12:56:25.1340766Z HARNESS_EXIT=0
+2026-11-15T12:56:25.1340975Z HARNESS_DONE
+2026-11-15T12:56:25.1341251Z [    2.303436] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:56:25.1341631Z [    2.304942] kvm: exiting hardware virtualization
+2026-11-15T12:56:25.1341920Z [    2.306028] reboot: Power down
+2026-11-15T12:56:25.1358516Z =========== 03_sheaf_stress @ lts-kasan ===========
+2026-11-15T12:56:53.3293744Z --- verdict ---
+2026-11-15T12:56:53.3326722Z VERDICT 03_sheaf_stress OK
+2026-11-15T12:56:53.3346449Z [    1.905219] scsi 2:0:0:0: CD-ROM            QEMU     QEMU DVD-ROM     2.5+ PQ: 0 ANSI: 5
+2026-11-15T12:56:53.3346911Z [    1.916430] sr 2:0:0:0: [sr0] scsi3-mmc drive: 4x/4x cd/rw xa/form2 tray
+2026-11-15T12:56:53.3347326Z [    1.926286] cdrom: Uniform CD-ROM driver Revision: 3.20
+2026-11-15T12:56:53.3347699Z [    1.945763] Freeing unused decrypted memory: 2028K
+2026-11-15T12:56:53.3348024Z [    1.948421] Freeing unused kernel image (initmem) memory: 9932K
+2026-11-15T12:56:53.3348401Z [    1.949582] Write protecting the kernel read-only data: 110592k
+2026-11-15T12:56:53.3348768Z [    1.951253] Freeing unused kernel image (rodata/data gap) memory: 1364K
+2026-11-15T12:56:53.3349101Z [    1.952507] Run /init as init process
+2026-11-15T12:56:53.3349652Z HARNESS_KERNEL=6.12.116-dirty
+2026-11-15T12:56:53.3349911Z HARNESS_POC=03_sheaf_stress
+2026-11-15T12:56:53.3350165Z HARNESS_UID_ROOT=0
+2026-11-15T12:56:53.3350409Z HARNESS_START
+2026-11-15T12:56:53.3350629Z STRESS start uid=65534
+2026-11-15T12:56:53.3350891Z STRESS churned=2034752
+2026-11-15T12:56:53.3351109Z POC_OK
+2026-11-15T12:56:53.3351329Z HARNESS_EXIT=0
+2026-11-15T12:56:53.3351540Z HARNESS_DONE
+2026-11-15T12:56:53.3351791Z [   27.250059] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:56:53.3352166Z [   27.251380] kvm: exiting hardware virtualization
+2026-11-15T12:56:53.3352500Z [   27.252339] reboot: Power down
+2026-11-15T12:56:53.3368407Z =========== 04_mqueue_leak @ lts-kasan ===========
+2026-11-15T12:57:07.5184023Z --- verdict ---
+2026-11-15T12:57:07.5214029Z VERDICT 04_mqueue_leak OK
+2026-11-15T12:57:07.5232640Z [    1.866073] cdrom: Uniform CD-ROM driver Revision: 3.20
+2026-11-15T12:57:07.5233174Z [    1.887951] Freeing unused decrypted memory: 2028K
+2026-11-15T12:57:07.5233629Z [    1.890675] Freeing unused kernel image (initmem) memory: 9932K
+2026-11-15T12:57:07.5234081Z [    1.891997] Write protecting the kernel read-only data: 110592k
+2026-11-15T12:57:07.5234577Z [    1.893814] Freeing unused kernel image (rodata/data gap) memory: 1364K
+2026-11-15T12:57:07.5235335Z [    1.895270] Run /init as init process
+2026-11-15T12:57:07.5235689Z HARNESS_KERNEL=6.12.116-dirty
+2026-11-15T12:57:07.5236017Z HARNESS_POC=04_mqueue_leak
+2026-11-15T12:57:07.5236428Z HARNESS_UID_ROOT=0
+2026-11-15T12:57:07.5236699Z HARNESS_START
+2026-11-15T12:57:07.5237038Z LEAK start uid=65534
+2026-11-15T12:57:07.5237372Z LEAK baseline Slab:              40948 kB
+2026-11-15T12:57:07.5237679Z LEAK cycles=400
+2026-11-15T12:57:07.5238012Z LEAK after Slab:              58452 kB
+2026-11-15T12:57:07.5238310Z POC_OK
+2026-11-15T12:57:07.5238558Z HARNESS_EXIT=0
+2026-11-15T12:57:07.5238769Z HARNESS_DONE
+2026-11-15T12:57:07.5239033Z [   13.136733] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:57:07.5239388Z [   13.138204] kvm: exiting hardware virtualization
+2026-11-15T12:57:07.5239673Z [   13.139312] reboot: Power down
+2026-11-15T12:57:07.5267733Z ##[group]Run for f in out/*; do
+2026-11-15T12:57:07.5268056Z [36;1mfor f in out/*; do[0m
+2026-11-15T12:57:07.5268307Z [36;1m  n=$(basename "$f")[0m
+2026-11-15T12:57:07.5268606Z [36;1m  echo "=========== $n @ hardened ==========="[0m
+2026-11-15T12:57:07.5268995Z [36;1m  timeout 300 qemu-system-x86_64 -accel kvm -m 2048 -M q35 -smp 2 \[0m
+2026-11-15T12:57:07.5269472Z [36;1m    -cpu host -kernel bz-hardened -initrd initramfs.cpio.gz \[0m
+2026-11-15T12:57:07.5269874Z [36;1m    -append "console=ttyS0 panic=-1 poc=$n" -nographic -no-reboot \[0m
+2026-11-15T12:57:07.5270237Z [36;1m    > "results/$n.hardened.log" 2>&1 || true[0m
+2026-11-15T12:57:07.5270554Z [36;1m  echo "--- verdict ---"[0m
+2026-11-15T12:57:07.5270983Z [36;1m  if grep -qE "kernel panic|BUG:|general protection|Oops" "results/$n.hardened.log"; then echo "VERDICT $n CRASH";[0m
+2026-11-15T12:57:07.5271527Z [36;1m  elif grep -q "POC_OK" "results/$n.hardened.log"; then echo "VERDICT $n OK";[0m
+2026-11-15T12:57:07.5271958Z [36;1m  else echo "VERDICT $n UNKNOWN"; fi[0m
+2026-11-15T12:57:07.5272310Z [36;1m  tail -20 "results/$n.hardened.log" || true[0m
+2026-11-15T12:57:07.5272583Z [36;1mdone[0m
+2026-11-15T12:57:07.5289120Z shell: /usr/bin/bash -e {0}
+2026-11-15T12:57:07.5289459Z ##[endgroup]
+2026-11-15T12:57:07.5342612Z =========== 00_probe @ hardened ===========
+2026-11-15T12:57:09.9434534Z --- verdict ---
+2026-11-15T12:57:09.9459377Z VERDICT 00_probe OK
+2026-11-15T12:57:09.9479712Z SYSCTL /proc/sys/kernel/perf_event_paranoid       2
+2026-11-15T12:57:09.9480241Z SYSCTL /proc/sys/kernel/kptr_restrict             0
+2026-11-15T12:57:09.9480687Z SYSCTL /proc/sys/kernel/dmesg_restrict            1
+2026-11-15T12:57:09.9481005Z SYSCTL /proc/sys/kernel/msgmax                    8192
+2026-11-15T12:57:09.9481366Z SYSCTL /proc/sys/kernel/msgmnb                    16384
+2026-11-15T12:57:09.9481952Z SYSCTL /proc/sys/kernel/keys/maxkeys              200
+2026-11-15T12:57:09.9482313Z SYSCTL /proc/sys/vm/unprivileged_userfaultfd      0
+2026-11-15T12:57:09.9482614Z SURF af_alg OK opfd=4
+2026-11-15T12:57:09.9482847Z SURF af_unix_dgram OK
+2026-11-15T12:57:09.9483092Z SURF af_inet_udp OK
+2026-11-15T12:57:09.9483313Z SURF sysv_msg OK id=0
+2026-11-15T12:57:09.9483536Z SURF userfaultfd ERR errno=1
+2026-11-15T12:57:09.9483820Z SURF dev_kvm ERR
+2026-11-15T12:57:09.9484061Z SURF dev_tun ERR
+2026-11-15T12:57:09.9484279Z POC_OK
+2026-11-15T12:57:09.9484480Z HARNESS_EXIT=0
+2026-11-15T12:57:09.9484701Z HARNESS_DONE
+2026-11-15T12:57:09.9484994Z [    1.632408] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:57:09.9485329Z [    1.633682] kvm: exiting hardware virtualization
+2026-11-15T12:57:09.9485616Z [    1.634632] reboot: Power down
+2026-11-15T12:57:09.9501625Z =========== 01_afalg_err @ hardened ===========
+2026-11-15T12:57:12.3774819Z --- verdict ---
+2026-11-15T12:57:12.3797933Z VERDICT 01_afalg_err OK
+2026-11-15T12:57:12.3818383Z [    1.716313] Write protecting the kernel read-only data: 57344k
+2026-11-15T12:57:12.3819032Z [    1.717922] Freeing unused kernel image (text/rodata gap) memory: 732K
+2026-11-15T12:57:12.3819679Z [    1.719655] Freeing unused kernel image (rodata/data gap) memory: 1200K
+2026-11-15T12:57:12.3820062Z [    1.721087] Run /init as init process
+2026-11-15T12:57:12.3820354Z HARNESS_KERNEL=7.2.0-rc5+
+2026-11-15T12:57:12.3820617Z HARNESS_POC=01_afalg_err
+2026-11-15T12:57:12.3820858Z HARNESS_UID_ROOT=0
+2026-11-15T12:57:12.3821069Z HARNESS_START
+2026-11-15T12:57:12.3821357Z ALG opfd=4
+2026-11-15T12:57:12.3821591Z ALG send=512 errno=0
+2026-11-15T12:57:12.3821865Z ALG recv_unmapped=-1 errno=14
+2026-11-15T12:57:12.3822119Z ALG recv_nullpage=-1 errno=14
+2026-11-15T12:57:12.3822359Z ALG recv_protnone=-1 errno=14
+2026-11-15T12:57:12.3822626Z HASH open failed errno=38
+2026-11-15T12:57:12.3822880Z POC_OK
+2026-11-15T12:57:12.3823088Z HARNESS_EXIT=0
+2026-11-15T12:57:12.3823323Z HARNESS_DONE
+2026-11-15T12:57:12.3823599Z [    1.736451] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:57:12.3824200Z [    1.737909] kvm: exiting hardware virtualization
+2026-11-15T12:57:12.3824548Z [    1.739016] reboot: Power down
+2026-11-15T12:57:12.3842526Z =========== 02_sheaf_netlink @ hardened ===========
+2026-11-15T12:57:14.9663702Z --- verdict ---
+2026-11-15T12:57:14.9687798Z VERDICT 02_sheaf_netlink OK
+2026-11-15T12:57:14.9707434Z [    1.613172] Write protecting the kernel read-only data: 57344k
+2026-11-15T12:57:14.9707951Z [    1.614636] Freeing unused kernel image (text/rodata gap) memory: 732K
+2026-11-15T12:57:14.9708414Z [    1.616175] Freeing unused kernel image (rodata/data gap) memory: 1200K
+2026-11-15T12:57:14.9708751Z [    1.617451] Run /init as init process
+2026-11-15T12:57:14.9709018Z HARNESS_KERNEL=7.2.0-rc5+
+2026-11-15T12:57:14.9709334Z HARNESS_POC=02_sheaf_netlink
+2026-11-15T12:57:14.9709576Z HARNESS_UID_ROOT=0
+2026-11-15T12:57:14.9709837Z HARNESS_START
+2026-11-15T12:57:14.9710073Z POC start uid=65534
+2026-11-15T12:57:14.9710310Z SYM __kfree_rcu_sheaf        0000000000000000
+2026-11-15T12:57:14.9710647Z SYM kmalloc_caches           0000000000000000
+2026-11-15T12:57:14.9710961Z SYM slub_kworker             0000000000000000
+2026-11-15T12:57:14.9711253Z NETLINK sockopt_probe ok=0
+2026-11-15T12:57:14.9711485Z POC done
+2026-11-15T12:57:14.9711673Z POC_OK
+2026-11-15T12:57:14.9712015Z HARNESS_EXIT=0
+2026-11-15T12:57:14.9712222Z HARNESS_DONE
+2026-11-15T12:57:14.9712486Z [    1.799422] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:57:14.9712845Z [    1.800891] kvm: exiting hardware virtualization
+2026-11-15T12:57:14.9713135Z [    1.801997] reboot: Power down
+2026-11-15T12:57:14.9729942Z =========== 03_sheaf_stress @ hardened ===========
+2026-11-15T12:57:42.5165335Z --- verdict ---
+2026-11-15T12:57:42.5187232Z VERDICT 03_sheaf_stress OK
+2026-11-15T12:57:42.5206221Z [    1.570968] sr 2:0:0:0: [sr0] scsi3-mmc drive: 4x/4x cd/rw xa/form2 tray
+2026-11-15T12:57:42.5206913Z [    1.584776] cdrom: Uniform CD-ROM driver Revision: 3.20
+2026-11-15T12:57:42.5207309Z [    1.599052] Freeing unused decrypted memory: 2028K
+2026-11-15T12:57:42.5207693Z [    1.600965] Freeing unused kernel image (initmem) memory: 5288K
+2026-11-15T12:57:42.5208048Z [    1.602295] Write protecting the kernel read-only data: 57344k
+2026-11-15T12:57:42.5208442Z [    1.603923] Freeing unused kernel image (text/rodata gap) memory: 732K
+2026-11-15T12:57:42.5208822Z [    1.605622] Freeing unused kernel image (rodata/data gap) memory: 1200K
+2026-11-15T12:57:42.5209197Z [    1.607072] Run /init as init process
+2026-11-15T12:57:42.5209474Z HARNESS_KERNEL=7.2.0-rc5+
+2026-11-15T12:57:42.5209716Z HARNESS_POC=03_sheaf_stress
+2026-11-15T12:57:42.5210341Z HARNESS_UID_ROOT=0
+2026-11-15T12:57:42.5210587Z HARNESS_START
+2026-11-15T12:57:42.5210832Z STRESS start uid=65534
+2026-11-15T12:57:42.5211069Z STRESS churned=28198528
+2026-11-15T12:57:42.5211294Z POC_OK
+2026-11-15T12:57:42.5211525Z HARNESS_EXIT=0
+2026-11-15T12:57:42.5211834Z HARNESS_DONE
+2026-11-15T12:57:42.5212126Z [   26.785603] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:57:42.5212511Z [   26.787107] kvm: exiting hardware virtualization
+2026-11-15T12:57:42.5212810Z [   26.788203] reboot: Power down
+2026-11-15T12:57:42.5228192Z =========== 04_mqueue_leak @ hardened ===========
+2026-11-15T12:57:55.9614254Z --- verdict ---
+2026-11-15T12:57:55.9635293Z VERDICT 04_mqueue_leak OK
+2026-11-15T12:57:55.9655439Z [    1.586671] Freeing unused kernel image (initmem) memory: 5288K
+2026-11-15T12:57:55.9656329Z [    1.587821] Write protecting the kernel read-only data: 57344k
+2026-11-15T12:57:55.9656777Z [    1.589278] Freeing unused kernel image (text/rodata gap) memory: 732K
+2026-11-15T12:57:55.9657172Z [    1.590793] Freeing unused kernel image (rodata/data gap) memory: 1200K
+2026-11-15T12:57:55.9657610Z [    1.592058] Run /init as init process
+2026-11-15T12:57:55.9657896Z HARNESS_KERNEL=7.2.0-rc5+
+2026-11-15T12:57:55.9658230Z HARNESS_POC=04_mqueue_leak
+2026-11-15T12:57:55.9658668Z HARNESS_UID_ROOT=0
+2026-11-15T12:57:55.9659130Z HARNESS_START
+2026-11-15T12:57:55.9659409Z LEAK start uid=65534
+2026-11-15T12:57:55.9659935Z LEAK baseline Slab:              26300 kB
+2026-11-15T12:57:55.9660316Z [    4.817677] clocksource: Watchdog remote CPU 1 read timed out
+2026-11-15T12:57:55.9660638Z LEAK cycles=400
+2026-11-15T12:57:55.9660902Z LEAK after Slab:              26876 kB
+2026-11-15T12:57:55.9661302Z POC_OK
+2026-11-15T12:57:55.9661547Z HARNESS_EXIT=0
+2026-11-15T12:57:55.9661761Z HARNESS_DONE
+2026-11-15T12:57:55.9662019Z [   12.747264] ACPI: PM: Preparing to enter system sleep state S5
+2026-11-15T12:57:55.9662375Z [   12.748782] kvm: exiting hardware virtualization
+2026-11-15T12:57:55.9662679Z [   12.749899] reboot: Power down
+2026-11-15T12:57:55.9690092Z ##[group]Run echo "===== SUMMARY ====="
+2026-11-15T12:57:55.9690426Z [36;1mecho "===== SUMMARY ====="[0m
+2026-11-15T12:57:55.9690692Z [36;1mfor f in results/*.log; do[0m
+2026-11-15T12:57:55.9691165Z [36;1m  n=$(basename "$f")[0m
+2026-11-15T12:57:55.9691447Z [36;1m  if grep -q "KASAN:" "$f"; then v=KASAN[0m
+2026-11-15T12:57:55.9691953Z [36;1m  elif grep -qE "kernel panic|BUG:|general protection|Oops" "$f"; then v=CRASH[0m
+2026-11-15T12:57:55.9692356Z [36;1m  elif grep -q "POC_OK" "$f"; then v=OK[0m
+2026-11-15T12:57:55.9692659Z [36;1m  else v=UNKNOWN; fi[0m
+2026-11-15T12:57:55.9692960Z [36;1m  printf '%-40s %s\n' "$n" "$v"[0m
+2026-11-15T12:57:55.9693247Z [36;1mdone[0m
+2026-11-15T12:57:55.9710114Z shell: /usr/bin/bash -e {0}
+2026-11-15T12:57:55.9710474Z ##[endgroup]
+2026-11-15T12:57:55.9742735Z ===== SUMMARY =====
+2026-11-15T12:57:55.9790787Z 00_probe.hardened.log                    OK
+2026-11-15T12:57:55.9836295Z 00_probe.kasan.log                       OK
+2026-11-15T12:57:55.9881757Z 01_afalg_err.hardened.log                OK
+2026-11-15T12:57:55.9926801Z 01_afalg_err.kasan.log                   OK
+2026-11-15T12:57:55.9969280Z 02_sheaf_netlink.hardened.log            OK
+2026-11-15T12:57:56.0011460Z 02_sheaf_netlink.kasan.log               OK
+2026-11-15T12:57:56.0053253Z 03_sheaf_stress.hardened.log             OK
+2026-11-15T12:57:56.0095378Z 03_sheaf_stress.kasan.log                OK
+2026-11-15T12:57:56.0137135Z 04_mqueue_leak.hardened.log              OK
+2026-11-15T12:57:56.0179497Z 04_mqueue_leak.kasan.log                 OK
+2026-11-15T12:57:56.0227999Z ##[group]Run actions/upload-artifact@v4
+2026-11-15T12:57:56.0228282Z with:
+2026-11-15T12:57:56.0228485Z   name: poc-results
+2026-11-15T12:57:56.0228732Z   path: results/
+2026-11-15T12:57:56.0228972Z   if-no-files-found: warn
+2026-11-15T12:57:56.0229210Z   compression-level: 6
+2026-11-15T12:57:56.0229445Z   overwrite: false
+2026-11-15T12:57:56.0229673Z   include-hidden-files: false
+2026-11-15T12:57:56.0230054Z ##[endgroup]
+2026-11-15T12:57:56.1497173Z (node:3783) [DEP0040] DeprecationWarning: The `punycode` module is deprecated. Please use a userland alternative instead.
+2026-11-15T12:57:56.1497855Z (Use `node --trace-deprecation ...` to show where the warning was created)
+2026-11-15T12:57:56.1572672Z With the provided path, there will be 10 files uploaded
+2026-11-15T12:57:56.1577267Z Artifact name is valid!
+2026-11-15T12:57:56.1577739Z Root directory input is valid!
+2026-11-15T12:57:56.3547519Z Beginning upload of artifact content to blob storage
+2026-11-15T12:57:56.3992807Z (node:3783) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+2026-11-15T12:57:56.4700221Z Uploaded bytes 119295
+2026-11-15T12:57:56.4869433Z Finished uploading artifact content to blob storage!
+2026-11-15T12:57:56.4869949Z SHA256 digest of uploaded artifact zip is ab7e0d60c8602e8df24b145b39ae93401e05f3c267aa0ffb66eb1fa8c7fe7e5c
+2026-11-15T12:57:56.4871193Z Finalizing artifact upload
+2026-11-15T12:57:56.8182167Z Artifact poc-results.zip successfully finalized. Artifact ID 14162467298
+2026-11-15T12:57:56.8183246Z Artifact poc-results has been successfully uploaded! Final size is 119295 bytes. Artifact ID is 14162467298
+2026-11-15T12:57:56.8187767Z Artifact download URL: https://github.com/ylh440104/kernelctf-lab/actions/runs/43716302587/artifacts/14162467298
+2026-11-15T12:57:56.8362731Z Post job cleanup.
+2026-11-15T12:57:56.9018772Z [command]/usr/bin/git version
+2026-11-15T12:57:56.9047405Z git version 2.56.1
+2026-11-15T12:57:56.9071875Z Temporarily overriding HOME='/home/runner/work/_temp/4dbcf6aa-24a0-449a-af3e-7d24ce5b6bb3' before making global git config changes
+2026-11-15T12:57:56.9073239Z Adding repository directory to the temporary git global config as a safe directory
+2026-11-15T12:57:56.9074489Z [command]/usr/bin/git config --global --add safe.directory /home/runner/work/kernelctf-lab/kernelctf-lab
+2026-11-15T12:57:56.9103152Z [command]/usr/bin/git config --local --name-only --get-regexp core\.sshCommand
+2026-11-15T12:57:56.9127730Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'core\.sshCommand' && git config --local --unset-all 'core.sshCommand' || :"
+2026-11-15T12:57:56.9326821Z [command]/usr/bin/git config --local --name-only --get-regexp http\.https\:\/\/github\.com\/\.extraheader
+2026-11-15T12:57:56.9342291Z http.https://github.com/.extraheader
+2026-11-15T12:57:56.9349189Z [command]/usr/bin/git config --local --unset-all http.https://github.com/.extraheader
+2026-11-15T12:57:56.9372076Z [command]/usr/bin/git submodule foreach --recursive sh -c "git config --local --name-only --get-regexp 'http\.https\:\/\/github\.com\/\.extraheader' && git config --local --unset-all 'http.https://github.com/.extraheader' || :"
+2026-11-15T12:57:56.9561794Z [command]/usr/bin/git config --local --name-only --get-regexp ^includeIf\.gitdir:
+2026-11-15T12:57:56.9587105Z [command]/usr/bin/git submodule foreach --recursive git config --local --show-origin --name-only --get-regexp remote.origin.url
+2026-11-15T12:57:56.9877757Z Cleaning up orphan processes
+2026-11-15T12:57:57.0152354Z ##[warning]Node.js 20 is deprecated. The following actions target Node.js 20 but are being forced to run on Node.js 24: actions/checkout@v4, actions/upload-artifact@v4. For more information see: https://github.blog/changelog/2025-09-19-deprecation-of-node-20-on-github-actions-runners/

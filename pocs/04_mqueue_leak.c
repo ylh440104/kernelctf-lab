@@ -82,6 +82,58 @@ static long one_cycle(int i)
 	return 0;
 }
 
+static long ctrl_cycle(int i)
+{
+	char name[64];
+	snprintf(name, sizeof(name), "/ctrltest_%d_%d", getpid(), i);
+	struct mq_attr attr = {
+		.mq_maxmsg = 1,
+		.mq_msgsize = 16,
+	};
+	mqd_t mq = mq_open(name, O_RDWR | O_CREAT | O_EXCL, 0600, &attr);
+	if (mq < 0)
+		return -1;
+	int nlfd = make_netlink();
+	if (nlfd < 0) {
+		mq_close(mq);
+		mq_unlink(name);
+		return -1;
+	}
+	pid_t pid = fork();
+	if (pid == 0) {
+		struct timespec ts = { .tv_nsec = 20000000 };
+		nanosleep(&ts, NULL);
+		close(nlfd);
+		mq_close(mq);
+		mq_unlink(name);
+		_exit(0);
+	}
+	close(nlfd);
+	mq_close(mq);
+	mq_unlink(name);
+	int st;
+	waitpid(pid, &st, 0);
+	return 0;
+}
+
+static long read_slab(void)
+{
+	int fd = open("/proc/meminfo", O_RDONLY);
+	long kb = -1;
+	if (fd >= 0) {
+		char buf[4096];
+		int n = read(fd, buf, sizeof(buf) - 1);
+		close(fd);
+		if (n > 0) {
+			buf[n] = 0;
+			char *p = strstr(buf, "Slab:");
+			if (p)
+				sscanf(p + 5, "%ld", &kb);
+		}
+	}
+	return kb;
+}
+
 int main(void)
 {
 	printf("LEAK start uid=%d\n", getuid());
@@ -110,24 +162,16 @@ int main(void)
 	printf("LEAK cycles=400\n");
 
 	sleep(3);
+	printf("LEAK after_slab=%ld\n", read_slab());
 
-	int fd = open("/proc/meminfo", O_RDONLY);
-	if (fd >= 0) {
-		char buf[4096];
-		int n = read(fd, buf, sizeof(buf) - 1);
-		close(fd);
-		if (n > 0) {
-			buf[n] = 0;
-			char *p = strstr(buf, "Slab:");
-			if (p) {
-				char line[128];
-				int j = 0;
-				while (p[j] && p[j] != '\n' && j < 120) { line[j] = p[j]; j++; }
-				line[j] = 0;
-				printf("LEAK after %s\n", line);
-			}
-		}
-	}
+	for (int i = 0; i < 400; i++)
+		if (ctrl_cycle(i) < 0)
+			break;
+	printf("LEAK ctrl_done\n");
+
+	sleep(3);
+	printf("LEAK after_ctrl=%ld\n", read_slab());
+	printf("LEAK delta_notify=%ld delta_ctrl_pending\n", read_slab());
 
 	printf("POC_OK\n");
 	return 0;
