@@ -6,7 +6,7 @@ on:
       release_tag:
         description: 'Release tag to verify'
         required: false
-        default: 'kcov-1'
+        default: 'kcov-v2-1'
   push:
     branches: [main]
     paths: ['verify/**']
@@ -33,7 +33,7 @@ jobs:
       - name: download release artifacts
         run: |
           TAG="${{ github.event.inputs.release_tag }}"
-          [ -z "$TAG" ] && TAG=kcov-1
+          [ -z "$TAG" ] && TAG=kcov-v2-1
           echo "TAG=$TAG"
           mkdir -p dist
           BASE="https://github.com/ylh440104/kernelctf-lab/releases/download/$TAG"
