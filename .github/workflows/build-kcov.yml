@@ -1,0 +1,135 @@
+name: build-kcov
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['pocs/**', 'results/**']
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: lts-kasan-kcov
+            config: kasan
+          - target: hardened-kcov
+            config: hardened
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          sudo apt-get clean
+          df -h /
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential flex bison libssl-dev \
+            libelf-dev bc cpio gzip xz-utils wget rsync libncurses-dev python3
+          gcc --version | head -1
+
+      - name: fetch kernel source
+        run: |
+          SHA=699594e8888db3d7fa9bbaec1323371416e6489e
+          git init -q linux
+          cd linux
+          git remote add origin https://github.com/thejh/linux.git
+          time git fetch --depth 1 origin $SHA
+          git checkout FETCH_HEAD
+          echo "HEAD=$(git rev-parse HEAD)"
+          head -4 Makefile
+
+      - name: download target config
+        run: |
+          B=https://storage.googleapis.com/kernelctf-build/releases
+          case "${{ matrix.config }}" in
+            kasan) curl -fsSL "$B/lts-6.12.116-kasan/.config" -o linux/.config ;;
+            hardened) curl -fsSL "$B/hardened-v1-7.2-rc5/.config" -o linux/.config ;;
+          esac
+          wc -l linux/.config
+          grep -E 'CONFIG_KASAN=|CONFIG_SLAB_VIRTUAL=|CONFIG_KMALLOC_PARTITION_TYPED=' linux/.config || true
+
+      - name: enable KCOV and build options
+        run: |
+          cd linux
+          ./scripts/config --file .config \
+            -e KCOV \
+            -e KCOV_ENABLE_COMPARISONS \
+            -e KCOV_INSTRUMENT_ALL \
+            -e DEBUG_FS \
+            -e DEBUG_INFO_NONE \
+            -d DEBUG_INFO \
+            -d DEBUG_INFO_DWARF5 \
+            -d DEBUG_INFO_DWARF4_TO_3 \
+            -e LOCALVERSION_AUTO=n || true
+          ./scripts/config --file .config -d MODULE_SIG -d MODULE_SIG_ALL || true
+          make olddefconfig
+          echo "===== KCOV status ====="
+          grep -E 'CONFIG_KCOV|CONFIG_KASAN=|CONFIG_SLAB_VIRTUAL|CONFIG_KMALLOC_SPLIT' .config
+
+      - name: build kernel
+        run: |
+          cd linux
+          echo "nproc=$(nproc)"
+          time make -j$(nproc) bzImage 2>&1 | tail -40
+
+      - name: package artifacts
+        run: |
+          mkdir -p dist
+          cp linux/arch/x86/boot/bzImage "dist/bzImage-${{ matrix.target }}"
+          cp linux/.config "dist/config-${{ matrix.target }}"
+          ls -lh dist/
+          cd dist
+          sha256sum * > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kernel-${{ matrix.target }}
+          path: dist/*
+          retention-days: 90
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: show files
+        run: ls -lhR dist/
+
+      - name: create release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: kcov-${{ github.run_number }}
+          name: KCOV kernels build ${{ github.run_number }}
+          body: |
+            kernelCTF 目标内核 + KCOV 重编译版本
+
+            源码 commit: 699594e8888db3d7fa9bbaec1323371416e6489e
+            用途: syzkaller 覆盖引导 fuzzing（官方 bzImage 未开 CONFIG_KCOV）
+
+            构建矩阵:
+            - lts-kasan-kcov: LTS 6.12.116 + KASAN + KCOV
+            - hardened-kcov: hardened-v1-7.2-rc5 + KCOV
+          files: dist/*
+          draft: false
+          prerelease: false
