@@ -1,0 +1,93 @@
+name: verify-lts-debug
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['verify/lts*']
+
+jobs:
+  debug:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 cpio gzip curl busybox-static
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: download lts kernel
+        run: |
+          BASE="https://github.com/ylh440104/kernelctf-lab/releases/download/kcov-1"
+          curl -fsSL "$BASE/bzImage-lts-kasan-kcov" -o bz-lts
+          curl -fsSL "$BASE/config-lts-kasan-kcov" -o cfg-lts
+          ls -lh bz-lts cfg-lts
+          echo "=== config key lines ==="
+          grep -E 'CONFIG_KASAN|CONFIG_KCOV|CONFIG_DEBUG_INFO|CONFIG_RANDOMIZE_BASE|CONFIG_X86_5LEVEL|CONFIG_RELOCATABLE|CONFIG_PHYSICAL_START|CONFIG_PHYSICAL_ALIGN|CONFIG_RELOCATABLE' cfg-lts || true
+
+      - name: check bzImage header
+        run: |
+          python3 - <<'PY'
+          import struct
+          d=open('bz-lts','rb').read(0x300)
+          print('size:', len(open('bz-lts','rb').read()))
+          print('boot flag 0x1FE:', hex(struct.unpack('<H', d[0x1FE:0x200])[0]))
+          setup_sects = d[0x1F1]
+          print('setup_sects:', setup_sects)
+          version = struct.unpack('<H', d[0x206:0x208])[0]
+          print('protocol version:', hex(version))
+          loadflags = struct.unpack('<H', d[0x211:0x213])[0]
+          print('loadflags:', hex(loadflags), 'LOADED_HIGH:', bool(loadflags & 1))
+          print('kernel_version offset:', d[0x20E:0x212])
+          PY
+
+      - name: build initramfs with early console
+        run: |
+          rm -rf rootfs
+          mkdir -p rootfs/bin rootfs/proc rootfs/sys rootfs/dev rootfs/tmp
+          cp /bin/busybox rootfs/bin/busybox
+          for a in sh mount cat grep echo poweroff uname; do ln -sf busybox "rootfs/bin/$a"; done
+          cat > rootfs/init <<'INIT'
+          #!/bin/sh
+          export PATH=/bin
+          mount -t proc none /proc
+          mount -t sysfs none /sys
+          mount -t devtmpfs none /dev 2>/dev/null
+          echo "GUEST_ALIVE kernel=$(uname -r)"
+          mount -t debugfs none /sys/kernel/debug 2>/dev/null && echo DEBUGFS_OK
+          [ -e /sys/kernel/debug/kcov ] && echo KCOV_YES || echo KCOV_NO
+          poweroff -f
+          INIT
+          chmod +x rootfs/init rootfs/bin/busybox
+          cd rootfs && find . | cpio -o -H newc 2>/dev/null | gzip -9 > ../initramfs.cpio.gz
+          cd .. && ls -lh initramfs.cpio.gz
+
+      - name: boot with full early console
+        run: |
+          echo "=== attempt 1: earlyprintk + ttyS0 ==="
+          timeout 120 qemu-system-x86_64 -accel kvm -m 3072 -M q35 -smp 2 \
+            -cpu host -kernel bz-lts -initrd initramfs.cpio.gz \
+            -append "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 keep_bootcon ignore_loglevel nokaslr" \
+            -nographic -no-reboot 2>&1 | head -80 || true
+
+          echo ""
+          echo "=== attempt 2: no accel (TCG) ==="
+          timeout 180 qemu-system-x86_64 -m 3072 -M q35 -smp 2 \
+            -kernel bz-lts -initrd initramfs.cpio.gz \
+            -append "console=ttyS0,115200 earlyprintk=serial,ttyS0,115200 ignore_loglevel" \
+            -nographic -no-reboot 2>&1 | head -60 || true
+
+          echo ""
+          echo "=== attempt 3: smaller memory ==="
+          timeout 120 qemu-system-x86_64 -accel kvm -m 1024 -M pc \
+            -cpu host -kernel bz-lts -initrd initramfs.cpio.gz \
+            -append "console=ttyS0 ignore_loglevel" \
+            -nographic -no-reboot 2>&1 | head -60 || true
