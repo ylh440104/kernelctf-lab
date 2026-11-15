@@ -1,0 +1,150 @@
+name: syzkaller-fuzz
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag with kernel+rootfs artifacts'
+        required: true
+        default: 'kcov-v3-1'
+      target:
+        description: 'lts-kasan or hardened'
+        required: true
+        default: 'lts-kasan'
+      fuzz_minutes:
+        description: 'How long to fuzz (minutes)'
+        required: true
+        default: '180'
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 350
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: install go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs \
+            build-essential gcc-multilib flex bison libssl-dev libelf-dev \
+            libncurses-dev bc pkg-config
+          go version
+
+      - name: build syzkaller
+        run: |
+          git clone --depth 1 https://github.com/google/syzkaller.git
+          cd syzkaller
+          make -j$(nproc) TARGETOS=linux TARGETARCH=amd64 binaries
+          ls -lh bin/
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          test -w /dev/kvm && echo KVM_WRITABLE || echo KVM_NOT_WRITABLE
+
+      - name: download artifacts
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          TGT="${{ github.event.inputs.target }}"
+          BASE="https://github.com/ylh440104/kernelctf-lab/releases/download/$TAG"
+          mkdir -p work/kernel work/img
+          if [ "$TGT" = "hardened" ]; then
+            PREFIX="kernel-hardened-kcov"
+          else
+            PREFIX="kernel-lts-kasan-kcov"
+          fi
+          curl -fsSL "$BASE/$PREFIX/bzImage" -o work/kernel/bzImage || curl -fsSL "$BASE/bzImage-$PREFIX" -o work/kernel/bzImage
+          curl -fsSL "$BASE/vmlinux" -o work/kernel/vmlinux || true
+          ls -lh work/kernel/
+
+      - name: fetch rootfs from release assets
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          BASE="https://github.com/ylh440104/kernelctf-lab/releases/download/$TAG"
+          cd work/img
+          curl -fsSL "$BASE/bullseye.img" -o bullseye.img && echo GOT_IMAGE || echo NO_IMAGE
+          curl -fsSL "$BASE/bullseye.id_rsa" -o bullseye.id_rsa && chmod 600 bullseye.id_rsa && echo GOT_KEY || echo NO_KEY
+          ls -lh
+
+      - name: build rootfs if missing
+        if: always()
+        run: |
+          cd work/img
+          if [ ! -f bullseye.img ]; then
+            echo "=== building rootfs with syzkaller tools ==="
+            sudo apt-get install -y -qq debootstrap
+            cd /root/../home/runner/work/kernelctf-lab/kernelctf-lab/syzkaller/tools 2>/dev/null || cd "$GITHUB_WORKSPACE/syzkaller/tools"
+            sudo ./create-image.sh -d bullseye
+            cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/" 2>/dev/null || true
+            cd "$GITHUB_WORKSPACE/work/img"
+            ls -lh
+          fi
+
+      - name: write syzkaller config
+        run: |
+          cd work
+          cat > config.cfg <<CFG
+{
+  "name": "kcovfuzz",
+  "target": "linux/amd64",
+  "http": "127.0.0.1:56741",
+  "workdir": "$GITHUB_WORKSPACE/work/syz-workdir",
+  "kernel_obj": "$GITHUB_WORKSPACE/work/kernel",
+  "image": "$GITHUB_WORKSPACE/work/img/bullseye.img",
+  "sshkey": "$GITHUB_WORKSPACE/work/img/bullseye.id_rsa",
+  "syzkaller": "$GITHUB_WORKSPACE/syzkaller",
+  "procs": 2,
+  "type": "qemu",
+  "vm": {
+    "count": 2,
+    "kernel": "$GITHUB_WORKSPACE/work/kernel/bzImage",
+    "cpu": 2,
+    "mem": 3072,
+    "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0"
+  }
+}
+CFG
+          cat config.cfg
+          mkdir -p syz-workdir
+
+      - name: run syz-manager
+        run: |
+          cd work
+          timeout --signal=INT $(( ${{ github.event.inputs.fuzz_minutes }} * 60 )) \
+            sudo -E "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" \
+            -config config.cfg 2>&1 | tee syz-manager.log || true
+          echo "=== manager exited ==="
+
+      - name: collect crashes
+        if: always()
+        run: |
+          cd work
+          echo "=== crash dir ==="
+          ls -lhR syz-workdir/crashes 2>/dev/null | head -60 || echo NO_CRASHES
+          echo "=== crash count ==="
+          find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
+          for f in $(find syz-workdir/crashes -name '*.log' 2>/dev/null | head -5); do
+            echo "--------- $f ---------"
+            head -40 "$f"
+          done
+          echo "=== manager log tail ==="
+          tail -40 syz-manager.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: syz-results
+          path: |
+            work/syz-manager.log
+            work/syz-workdir/crashes
+            work/config.cfg
+          retention-days: 90
