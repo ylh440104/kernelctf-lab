@@ -1,0 +1,48 @@
+name: make-rootfs
+
+on:
+  workflow_dispatch:
+
+jobs:
+  rootfs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq debootstrap qemu-utils e2fsprogs
+
+      - name: clone syzkaller tools
+        run: |
+          git clone --depth 1 https://github.com/google/syzkaller.git
+          ls syzkaller/tools/create-image.sh
+
+      - name: create rootfs
+        run: |
+          cd syzkaller/tools
+          sudo ./create-image.sh -d bullseye
+          sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa bullseye.id_rsa.pub
+          ls -lh bullseye.img bullseye.id_rsa bullseye.id_rsa.pub
+          file bullseye.img
+
+      - name: shrink image
+        run: |
+          cd syzkaller/tools
+          sudo e2fsck -f bullseye.img || true
+          sudo resize2fs -M bullseye.img || true
+          ls -lh bullseye.img
+          gzip -9 -k bullseye.img
+          ls -lh bullseye.img.gz
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syzkaller-rootfs
+          path: |
+            syzkaller/tools/bullseye.img
+            syzkaller/tools/bullseye.img.gz
+            syzkaller/tools/bullseye.id_rsa
+            syzkaller/tools/bullseye.id_rsa.pub
+          retention-days: 90
