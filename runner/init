@@ -1,0 +1,24 @@
+#!/bin/sh
+export PATH=/bin
+mount -t proc none /proc
+mount -t sysfs none /sys
+mount -t devtmpfs none /dev 2>/dev/null
+chmod 1777 /tmp
+
+POC=$(cat /proc/cmdline | tr ' ' '\n' | grep '^poc=' | cut -d= -f2)
+
+echo "HARNESS_KERNEL=$(uname -r)"
+echo "HARNESS_POC=$POC"
+echo "HARNESS_UID_ROOT=$(id -u)"
+
+if [ -n "$POC" ] && [ -x "/poc/$POC" ]; then
+    echo "HARNESS_START"
+    setuidgid nobody "/poc/$POC"
+    echo "HARNESS_EXIT=$?"
+else
+    echo "HARNESS_NO_POC"
+fi
+
+echo "HARNESS_DONE"
+sync
+poweroff -f
