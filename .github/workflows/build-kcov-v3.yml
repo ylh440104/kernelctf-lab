@@ -1,0 +1,176 @@
+name: build-kcov-v3
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 340
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: lts-kasan-kcov
+            config_url: https://storage.googleapis.com/kernelctf-build/releases/lts-6.12.116-kasan/.config
+            repo: https://github.com/gregkh/linux
+            commit: 5c40a1750f44dd6c7292d8c8d0b4ffff1734576e
+          - target: hardened-kcov
+            config_url: https://storage.googleapis.com/kernelctf-build/releases/hardened-v1-7.2-rc5/.config
+            repo: https://github.com/thejh/linux
+            commit: 699594e8888db3d7fa9bbaec1323371416e6489e
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/share/boost "$AGENT_TOOLSDIRECTORY" || true
+          sudo apt-get clean
+          df -h /
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential flex bison libssl-dev \
+            libelf-dev bc cpio gzip xz-utils wget rsync libncurses-dev python3 \
+            binutils
+          gcc --version | head -1
+          objcopy --version | head -1
+
+      - name: fetch kernel source
+        run: |
+          git init -q linux
+          cd linux
+          git remote add origin ${{ matrix.repo }}
+          git fetch --depth 1 origin ${{ matrix.commit }}
+          git checkout FETCH_HEAD
+          git rev-parse HEAD
+          head -5 Makefile
+
+      - name: download target config
+        run: |
+          curl -fsSL "${{ matrix.config_url }}" -o linux/.config
+          wc -l linux/.config
+
+      - name: enable KCOV
+        run: |
+          cd linux
+          ./scripts/config --file .config \
+            -e KCOV \
+            -e KCOV_ENABLE_COMPARISONS \
+            -e KCOV_INSTRUMENT_ALL \
+            -e DEBUG_FS \
+            -e DEBUG_INFO_NONE
+          ./scripts/config --file .config -d DEBUG_INFO -d DEBUG_INFO_DWARF5 \
+            -d DEBUG_INFO_DWARF4 -d DEBUG_INFO_DWARF_TOOLCHAIN_DEFAULT \
+            -d DEBUG_INFO_BTF -d DEBUG_INFO_BTF_MODULES \
+            -d MODULE_SIG -d MODULE_SIG_ALL -d GDB_SCRIPTS || true
+          make olddefconfig
+          grep -E 'CONFIG_KCOV|CONFIG_KASAN=|CONFIG_SLAB_VIRTUAL=|CONFIG_DEBUG_FS=|CONFIG_DEBUG_INFO' .config
+
+      - name: build bzImage and vmlinux
+        run: |
+          cd linux
+          echo "nproc=$(nproc)"
+          time make -j$(nproc) bzImage
+          time make -j$(nproc) vmlinux
+          ls -lh arch/x86/boot/bzImage vmlinux
+
+      - name: strip vmlinux keep symbols
+        run: |
+          cd linux
+          objcopy --strip-debug vmlinux ../vmlinux-${{ matrix.target }}
+          cd ..
+          ls -lh vmlinux-${{ matrix.target }}
+          echo "=== symbol check ==="
+          nm vmlinux-${{ matrix.target }} 2>/dev/null | grep -cE ' [TtDdBbRr] ' || true
+          nm vmlinux-${{ matrix.target }} 2>/dev/null | grep -m5 -E ' (T|t) (__x64_sys_|ksys_|do_sys)' || true
+          echo "=== file ==="
+          file vmlinux-${{ matrix.target }}
+
+      - name: package
+        run: |
+          mkdir -p dist/kernel-${{ matrix.target }}
+          cp linux/arch/x86/boot/bzImage "dist/kernel-${{ matrix.target }}/bzImage"
+          cp "vmlinux-${{ matrix.target }}" "dist/kernel-${{ matrix.target }}/vmlinux"
+          cp linux/.config "dist/kernel-${{ matrix.target }}/.config"
+          cd dist/kernel-${{ matrix.target }}
+          sha256sum * > SHA256SUMS
+          ls -lh
+          du -sh .
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: kernelobj-${{ matrix.target }}
+          path: dist/kernel-${{ matrix.target }}/*
+          retention-days: 90
+
+  rootfs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq debootstrap qemu-utils e2fsprogs curl
+
+      - name: clone syzkaller tools
+        run: |
+          git clone --depth 1 https://github.com/google/syzkaller.git
+          ls syzkaller/tools/create-image.sh
+
+      - name: create rootfs image
+        run: |
+          cd syzkaller/tools
+          sudo ./create-image.sh -d bullseye
+          ls -lh bullseye.img bullseye.id_rsa bullseye.id_rsa.pub
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: syzkaller-rootfs
+          path: |
+            syzkaller/tools/bullseye.img
+            syzkaller/tools/bullseye.id_rsa
+            syzkaller/tools/bullseye.id_rsa.pub
+          retention-days: 90
+
+  release:
+    needs: [build, rootfs]
+    runs-on: ubuntu-latest
+    if: always() && needs.build.result == 'success' && needs.rootfs.result == 'success'
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+      - run: |
+          find dist -type f | head -30
+          du -sh dist
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: kcov-v3-${{ github.run_number }}
+          name: KCOV kernels + rootfs v3 build ${{ github.run_number }}
+          body: |
+            syzkaller-ready artifacts
+
+            Contents:
+            - kernel-lts-kasan-kcov/{bzImage,vmlinux,.config}
+            - kernel-hardened-kcov/{bzImage,vmlinux,.config}
+            - rootfs.img (Debian bullseye, sshd enabled)
+            - sshkey (root ssh key)
+
+            vmlinux 已 objcopy --strip-debug，保留符号表，供 syzkaller 做 crash symbolization。
+
+            Sources:
+            - hardened: thejh/linux @ 699594e8888db3d7fa9bbaec1323371416e6489e (7.2-rc5)
+            - lts: gregkh/linux @ 5c40a1750f44dd6c7292d8c8d0b4ffff1734576e (6.12.116)
+          files: |
+            dist/kernel-lts-kasan-kcov/*
+            dist/kernel-hardened-kcov/*
+            dist/syzkaller-rootfs/*
+          draft: false
+          prerelease: false
