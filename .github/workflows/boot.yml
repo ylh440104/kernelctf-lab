@@ -16,7 +16,6 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq qemu-system-x86 qemu-utils cpio gzip curl socat xz-utils
           qemu-system-x86_64 --version | head -1
-          socat -V 2>&1 | head -1
 
       - name: enable kvm
         run: |
@@ -24,13 +23,20 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
+          echo 'info kvm' > /tmp/mon.txt
+          echo 'quit' >> /tmp/mon.txt
+          timeout 60 qemu-system-x86_64 -accel kvm -m 256 -M q35 -display none -monitor stdio < /tmp/mon.txt 2>&1 | grep -a 'kvm support'
 
-      - name: fetch kernelctf info
+      - name: download official kernels
         run: |
-          git clone -q --depth 1 https://github.com/google/security-research.git sr
-          cd sr/kernelctf/server
-          pip install --quiet --break-system-packages requests pyyaml httplib2 2>&1 | tail -2
-          timeout 180 python3 client/cli.py --action info 2>&1 | head -100 | tee /tmp/info.txt
+          B=https://storage.googleapis.com/kernelctf-build/releases
+          curl -fsSL "$B/hardened-v1-7.2-rc5/bzImage" -o bz-hardened
+          curl -fsSL "$B/lts-6.12.116/bzImage" -o bz-lts
+          curl -fsSL "$B/lts-6.12.116-kasan/bzImage" -o bz-kasan
+          curl -fsSL "$B/hardened-v1-7.2-rc5/.config" -o config-hardened
+          ls -lh bz-* config-hardened
+          echo "=== HARDENED CONFIG KEY ITEMS ==="
+          grep -E 'CONFIG_(SLAB_VIRTUAL|KMALLOC_PARTITION_TYPED|SLAB_MERGE_DEFAULT|IO_URING|USER_NS|TLS|BPF_UNPRIV|AF_UNIX_OOB|CFI_CLANG|X86_KERNEL_IBT)' config-hardened | head -20
 
       - name: build initramfs
         run: |
@@ -42,34 +48,37 @@ jobs:
             'mount -t devtmpfs none /dev 2>/dev/null' \
             'echo "===GUEST==="' \
             'echo "BOOT_OK_KERNEL=$(uname -r)"' \
-            'echo "GUEST_CET_COUNT=$(grep -m1 flags /proc/cpuinfo | tr " " "\n" | grep -ciE "ibt|shstk")"' \
-            'grep -m1 flags /proc/cpuinfo | tr " " "\n" | grep -iE "ibt|shstk" | tr "\n" " "' \
-            'echo ""' \
             'echo "GUEST_MODEL=$(grep -m1 "model name" /proc/cpuinfo | cut -d: -f2)"' \
+            'echo -n "GUEST_CET_FLAGS="' \
+            'grep -m1 flags /proc/cpuinfo | tr " " "\n" | grep -iE "^(ibt|shstk)$" | tr "\n" " "' \
+            'echo ""' \
+            'echo "GUEST_USERNS=$(ls /proc/self/ns/user 2>/dev/null || echo none)"' \
             'echo "===ENDGUEST==="' \
             'poweroff -f' > rootfs/init
           chmod +x rootfs/init
           cd rootfs && find . | cpio -o -H newc 2>/dev/null | gzip -9 > ../initramfs.cpio.gz
           cd .. && ls -lh initramfs.cpio.gz
 
-      - name: boot with official kernelctf kernel
+      - name: boot hardened target
         run: |
-          grep -oE 'https://[^ ]*bzImage[^ ]*' /tmp/info.txt | head -3 || true
-          URL=$(grep -oE 'https://[^ ]*bzImage[^ ]*' /tmp/info.txt | head -1)
-          echo "URL=$URL"
-          if [ -n "$URL" ]; then
-            curl -sL "$URL" -o bzImage
-            ls -lh bzImage
-            echo "=== BOOTING OFFICIAL KERNELCTF KERNEL ==="
-            timeout 180 qemu-system-x86_64 -accel kvm -m 2048 -M q35 -smp 2 \
-              -cpu host -kernel bzImage -initrd initramfs.cpio.gz \
-              -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -50
-          else
-            echo "NO_BZIMAGE_URL_FOUND"
-            echo "=== FALLBACK: host kernel copy ==="
-            sudo cp /boot/vmlinuz-$(uname -r) /tmp/vmlinuz || true
-            sudo chmod 644 /tmp/vmlinuz
-            timeout 180 qemu-system-x86_64 -accel kvm -m 2048 -M q35 -smp 2 \
-              -cpu host -kernel /tmp/vmlinuz -initrd initramfs.cpio.gz \
-              -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -50
-          fi
+          echo "=== BOOTING hardened-v1-7.2-rc5 (official) ==="
+          timeout 180 qemu-system-x86_64 -accel kvm -m 2048 -M q35 -smp 2 \
+            -cpu host -kernel bz-hardened -initrd initramfs.cpio.gz \
+            -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -45
+          echo "HARDENED_EXIT=$?"
+
+      - name: boot lts kasan target
+        run: |
+          echo "=== BOOTING lts-6.12.116-kasan (official) ==="
+          timeout 240 qemu-system-x86_64 -accel kvm -m 3072 -M q35 -smp 2 \
+            -cpu host -kernel bz-kasan -initrd initramfs.cpio.gz \
+            -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -45
+          echo "KASAN_EXIT=$?"
+
+      - name: boot without cet cpu model
+        run: |
+          echo "=== hardened with -cpu qemu64 (no CET) ==="
+          timeout 180 qemu-system-x86_64 -accel kvm -m 2048 -M q35 -smp 2 \
+            -cpu qemu64 -kernel bz-hardened -initrd initramfs.cpio.gz \
+            -append "console=ttyS0 panic=-1" -nographic -no-reboot 2>&1 | tail -25
+          echo "NOCET_EXIT=$?"
