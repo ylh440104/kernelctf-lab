@@ -11,6 +11,7 @@
 #include <sys/syscall.h>
 #include <linux/netlink.h>
 #include <mqueue.h>
+#include <time.h>
 
 #define NLFD_SYSCALL 0
 #define NLFD_SKB 1
