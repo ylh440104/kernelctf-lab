@@ -55,6 +55,7 @@ jobs:
             ln -sf busybox "rootfs/bin/$a"
           done
           cp out/* rootfs/poc/
+          gcc -static -O2 -w -o rootfs/bin/runas runner/runas.c
           cp runner/init rootfs/init
           printf 'root:x:0:0:root:/root:/bin/sh\nnobody:x:65534:65534:nobody:/:/bin/sh\n' > rootfs/etc/passwd
           printf 'root:x:0:\nnobody:x:65534:\n' > rootfs/etc/group

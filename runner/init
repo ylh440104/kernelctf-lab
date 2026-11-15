@@ -13,7 +13,7 @@ echo "HARNESS_UID_ROOT=$(id -u)"
 
 if [ -n "$POC" ] && [ -x "/poc/$POC" ]; then
     echo "HARNESS_START"
-    setuidgid nobody "/poc/$POC"
+    /bin/runas "/poc/$POC"
     echo "HARNESS_EXIT=$?"
 else
     echo "HARNESS_NO_POC"
