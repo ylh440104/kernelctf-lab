@@ -1,0 +1,92 @@
+name: boot-test
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_run_id:
+        description: 'Run ID of build-kcov-v3'
+        required: true
+        default: '43774253899'
+      rootfs_run_id:
+        description: 'Run ID of make-rootfs'
+        required: true
+        default: '43777207164'
+
+jobs:
+  boot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+          test -w /dev/kvm && echo KVM_READY || echo KVM_FAIL
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs
+
+      - name: download kernel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kernelobj-hardened-kcov
+          path: k
+          run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: download rootfs artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: syzkaller-rootfs
+          path: r
+          run-id: ${{ github.event.inputs.rootfs_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: inspect
+        run: |
+          echo "=== kernel ==="
+          ls -lh k/
+          file k/bzImage k/vmlinux 2>/dev/null
+          echo "=== rootfs ==="
+          find r -type f | head
+          ls -lh r/ 2>/dev/null
+          find r -name '*.img' -exec ls -lh {} \;
+          find r -name '*.id_rsa' -exec ls -lh {} \;
+
+      - name: boot hardened with disk
+        run: |
+          set -x
+          IMG=$(find r -name 'bullseye.img' | head -1)
+          echo "IMG=$IMG"
+          ls -lh "$IMG"
+          timeout 150 qemu-system-x86_64 -accel kvm -m 2048 -smp 2 \
+            -kernel k/bzImage \
+            -drive file="$IMG",format=raw,if=virtio \
+            -append "root=/dev/vda rw console=ttyS0 oops=panic panic=1 net.ifnames=0" \
+            -netdev user,id=n0,hostfwd=tcp::10022-:22 \
+            -device virtio-net-pci,netdev=n0 \
+            -nographic -no-reboot > boot.log 2>&1 || true
+          echo "=== first 60 lines ==="
+          head -60 boot.log
+          echo "=== last 40 lines ==="
+          tail -40 boot.log
+
+      - name: verdict
+        run: |
+          echo "=== checks ==="
+          grep -c 'Linux version' boot.log || true
+          grep -m2 -E 'VFS: Cannot open|Kernel panic|No filesystem|not syncing' boot.log || echo NO_PANIC
+          grep -m3 -E 'EXT4-fs|virtio_blk|vda' boot.log || echo NO_BLOCK_DEV
+          grep -m3 -E 'login:|syzbot login|Reached target' boot.log || echo NO_LOGIN
+          if grep -qE 'login:' boot.log; then echo RESULT=BOOT_OK; else echo RESULT=BOOT_FAIL; fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: boot-log
+          path: boot.log
+          retention-days: 30
