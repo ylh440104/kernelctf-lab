@@ -43,7 +43,9 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/google/syzkaller.git
           cd syzkaller
-          make -j$(nproc) TARGETOS=linux TARGETARCH=amd64 binaries
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -30
+          echo "=== bin tree ==="
+          find bin -maxdepth 2 -type f -executable | head -20
           ls -lh bin/
 
       - name: enable kvm
@@ -110,22 +112,21 @@ jobs:
       - name: collect results
         if: always()
         run: |
+          if [ ! -d work ]; then echo "WORK_DIR_MISSING (earlier step failed)"; exit 0; fi
           cd work
           echo "=== crash count ==="
           find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
           echo "=== crash files ==="
           find syz-workdir/crashes -name '*.log' 2>/dev/null | head -20
           echo "=== manager log (key lines) ==="
-          grep -E 'executed programs|corpus|coverage|crash|fuzzing|VM|error' syz-manager.log | tail -40 || true
+          grep -E 'executed programs|corpus|coverage|crash|fuzzing|VM|error' syz-manager.log 2>/dev/null | tail -40 || true
           echo "=== manager log tail ==="
-          tail -50 syz-manager.log
+          tail -50 syz-manager.log 2>/dev/null || echo NO_LOG
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: syz-results
-          path: |
-            work/syz-manager.log
-            work/config.cfg
-            work/syz-workdir/crashes/**
+          path: work/
+          if-no-files-found: warn
           retention-days: 90
