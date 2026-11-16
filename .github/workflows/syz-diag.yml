@@ -1,0 +1,113 @@
+name: syz-diag
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_run_id:
+        description: 'build-kcov-v3 run id'
+        required: true
+        default: '43774253899'
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs \
+            build-essential flex bison libssl-dev libelf-dev libncurses-dev \
+            bc pkg-config debootstrap netcat-openbsd
+
+      - name: build syzkaller
+        run: |
+          git clone --depth 1 https://github.com/google/syzkaller.git
+          cd syzkaller
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -10
+          ls -lh bin/ bin/linux_amd64/ 2>/dev/null | head -20
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: download kernel
+        uses: actions/download-artifact@v4
+        with:
+          name: kernelobj-hardened-kcov
+          path: work/kernel
+          run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: make rootfs
+        run: |
+          mkdir -p work/img
+          cd syzkaller/tools
+          sudo ./create-image.sh -d bullseye
+          sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa
+          cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/"
+          ls -lh "$GITHUB_WORKSPACE/work/img/"
+
+      - name: manual vm test with executor
+        run: |
+          set -x
+          IMG="$GITHUB_WORKSPACE/work/img/bullseye.img"
+          KEY="$GITHUB_WORKSPACE/work/img/bullseye.id_rsa"
+          chmod 600 "$KEY"
+          # 拷 executor 到镜像里
+          mkdir -p /tmp/mnt
+          sudo mount -o loop "$IMG" /tmp/mnt
+          sudo cp syzkaller/bin/linux_amd64/syz-executor /tmp/mnt/root/
+          sudo chmod +x /tmp/mnt/root/syz-executor
+          sudo umount /tmp/mnt
+          # 启动 VM，端口转发 10022 -> 22
+          qemu-system-x86_64 -accel kvm -m 3072 -smp 2 \
+            -kernel work/kernel/bzImage \
+            -drive file="$IMG",format=raw,if=virtio \
+            -append "root=/dev/vda rw console=ttyS0 oops=panic panic=1 net.ifnames=0" \
+            -netdev user,id=n0,hostfwd=tcp::10022-:22 \
+            -device virtio-net-pci,netdev=n0 \
+            -nographic -no-reboot > vm.log 2>&1 &
+          QPID=$!
+          echo "qemu pid $QPID"
+          sleep 90
+          echo "=== try ssh ==="
+          for i in 1 2 3 4 5; do
+            if ssh -i "$KEY" -p 10022 -o StrictHostKeyChecking=no \
+                 -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
+                 -o LogLevel=ERROR root@127.0.0.1 'echo SSH_OK; uname -r; ip addr show | head -20' 2>&1; then
+              echo "SSH_SUCCESS"
+              break
+            fi
+            echo "attempt $i failed, sleep 15"
+            sleep 15
+          done
+          echo "=== run executor standalone ==="
+          ssh -i "$KEY" -p 10022 -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null -o ConnectTimeout=15 \
+              -o LogLevel=ERROR root@127.0.0.1 \
+              'ls -l /root/syz-executor; /root/syz-executor 2>&1 | head -20; echo EXECUTOR_EXIT=$?' 2>&1 || echo EXECUTOR_SSH_FAIL
+          echo "=== dmesg tail ==="
+          ssh -i "$KEY" -p 10022 -o StrictHostKeyChecking=no \
+              -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
+              -o LogLevel=ERROR root@127.0.0.1 'dmesg | tail -20' 2>&1 || true
+          kill $QPID 2>/dev/null || true
+          echo "=== vm.log tail ==="
+          tail -40 vm.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diag-results
+          path: |
+            vm.log
+          retention-days: 30
