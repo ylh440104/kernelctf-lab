@@ -4,19 +4,15 @@ on:
   workflow_dispatch:
     inputs:
       kernel_run_id:
-        description: 'Run ID of build-kcov-v3'
         required: true
         default: '43774253899'
       target:
-        description: 'hardened or lts-kasan'
         required: true
         default: 'hardened'
       fuzz_minutes:
-        description: 'Fuzz duration in minutes'
         required: true
-        default: '15'
+        default: '20'
       sandbox:
-        description: 'sandbox: none or setuid'
         required: true
         default: 'none'
 
@@ -34,17 +30,15 @@ jobs:
       - name: deps
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs \
-            build-essential flex bison libssl-dev libelf-dev libncurses-dev \
-            bc pkg-config debootstrap
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs debootstrap
           go version
 
       - name: build syzkaller
         run: |
           git clone --depth 1 https://github.com/google/syzkaller.git
           cd syzkaller
-          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -15
-          ls -lh bin/ | head -10
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -8
+          ls -lh bin/linux_amd64/syz-executor
 
       - name: enable kvm
         run: |
@@ -52,9 +46,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
           ls -l /dev/kvm
-          test -w /dev/kvm && echo KVM_READY || echo KVM_FAIL
 
-      - name: download kernel artifact
+      - name: download kernel
         uses: actions/download-artifact@v4
         with:
           name: kernelobj-${{ github.event.inputs.target }}-kcov
@@ -62,22 +55,33 @@ jobs:
           run-id: ${{ github.event.inputs.kernel_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: make rootfs with dhcp client
+      - name: make rootfs and enable networking
         run: |
           mkdir -p work/img
           cd syzkaller/tools
-          echo "=== 关键: 加装 isc-dhcp-client + ifupdown，否则 /etc/network/interfaces 的 dhcp 配置不会生效 ==="
-          sudo env ADD_PACKAGE="isc-dhcp-client,ifupdown,iproute2,net-tools,openssh-server,curl,tar,gcc,libc6-dev,time,strace,sudo,less,psmisc" \
-            ./create-image.sh -d bullseye
+          sudo env ADD_PACKAGE="isc-dhcp-client,ifupdown,iproute2,net-tools,openssh-server,curl,tar,gcc,libc6-dev,time,strace,sudo,less,psmisc" ./create-image.sh -d bullseye
           sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa
-          echo "=== 验证镜像内是否有 dhclient ==="
           sudo mkdir -p /tmp/mnt
           sudo mount -o loop bullseye.img /tmp/mnt
-          sudo ls -la /tmp/mnt/sbin/dhclient 2>/dev/null || echo NO_DHCLIENT
-          sudo ls -la /tmp/mnt/sbin/ifup 2>/dev/null || echo NO_IFUP
+          echo "=== BEFORE: networking.service 是否启用 ==="
+          sudo ls -la /tmp/mnt/etc/systemd/system/multi-user.target.wants/ 2>/dev/null | head -5
+          echo "=== 启用 networking.service (关键!) ==="
+          sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
+          sudo ln -sf /lib/systemd/system/networking.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/networking.service
+          sudo ln -sf /dev/null /tmp/mnt/etc/systemd/system/network-online.target.wants/networking.service 2>/dev/null || \
+            (sudo mkdir -p /tmp/mnt/etc/systemd/system/network-online.target.wants && sudo ln -sf /lib/systemd/system/networking.service /tmp/mnt/etc/systemd/system/network-online.target.wants/networking.service)
+          sudo ln -sf /lib/systemd/system/ifupdown-wait-online.service /tmp/mnt/etc/systemd/system/network-online.target.wants/ifupdown-wait-online.service 2>/dev/null || true
+          echo "=== AFTER ==="
+          sudo ls -la /tmp/mnt/etc/systemd/system/multi-user.target.wants/ | grep network
+          echo "=== interfaces 内容 ==="
           sudo cat /tmp/mnt/etc/network/interfaces
+          echo "=== dhclient 存在? ==="
+          sudo ls -la /tmp/mnt/sbin/dhclient /tmp/mnt/sbin/ifup 2>&1 | head -3
+          echo "=== 拷贝 executor 进去备用 ==="
+          sudo cp "$GITHUB_WORKSPACE/syzkaller/bin/linux_amd64/syz-executor" /tmp/mnt/root/ 2>/dev/null || true
           sudo umount /tmp/mnt
           cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/"
+          chmod 600 "$GITHUB_WORKSPACE/work/img/bullseye.id_rsa"
           ls -lh "$GITHUB_WORKSPACE/work/img/"
 
       - name: write config
@@ -92,13 +96,12 @@ jobs:
         run: |
           cd work
           MINS=${{ github.event.inputs.fuzz_minutes }}
-          echo "=== 关键改动: 不用 sudo（/dev/kvm 已 0666，文件属 runner），避免 sudo 破坏 ssh 管道 ==="
           "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
           MPID=$!
-          echo "manager pid $MPID, will run for $MINS minutes"
+          echo "manager pid $MPID, run for $MINS minutes"
           for i in $(seq 1 $MINS); do
             sleep 60
-            if [ $((i % 3)) -eq 0 ]; then
+            if [ $((i % 4)) -eq 0 ]; then
               echo "--- minute $i ---"
               grep -E 'executed programs|corpus|coverage|crash' syz-manager.log | tail -3 || true
             fi
@@ -113,14 +116,14 @@ jobs:
         run: |
           if [ ! -d work ]; then echo "WORK_DIR_MISSING"; exit 0; fi
           cd work
-          echo "=========== HEAD 100 ==========="
-          head -100 syz-manager.log 2>/dev/null || echo NO_LOG
+          echo "=========== HEAD 80 ==========="
+          head -80 syz-manager.log 2>/dev/null
           echo "=========== TAIL 60 ==========="
-          tail -60 syz-manager.log 2>/dev/null || echo NO_LOG
-          echo "=========== crashes ==========="
+          tail -60 syz-manager.log 2>/dev/null
+          echo "=========== crash count ==========="
           find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
-          echo "=========== keywords ==========="
-          grep -inE 'executor|kcov|enable|fail|error|denied' syz-manager.log 2>/dev/null | head -30 || true
+          echo "=========== all VM events ==========="
+          grep -E 'VM [0-9]:|boot error|executed programs' syz-manager.log 2>/dev/null | head -30
 
       - uses: actions/upload-artifact@v4
         if: always()
