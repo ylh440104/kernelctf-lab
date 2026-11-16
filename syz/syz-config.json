@@ -15,9 +15,7 @@
     "kernel": "@WS@/work/kernel/bzImage",
     "cpu": 2,
     "mem": 3072,
-    "nic": "virtio-net-pci",
-    "netdev": "user",
-    "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0",
-    "qemu_args": "-enable-kvm"
+    "network_device": "virtio-net-pci",
+    "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0"
   }
 }
