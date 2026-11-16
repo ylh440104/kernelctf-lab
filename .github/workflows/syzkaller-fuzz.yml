@@ -43,10 +43,8 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/google/syzkaller.git
           cd syzkaller
-          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -30
-          echo "=== bin tree ==="
-          find bin -maxdepth 2 -type f -executable | head -20
-          ls -lh bin/
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -15
+          ls -lh bin/ | head -10
 
       - name: enable kvm
         run: |
@@ -68,15 +66,21 @@ jobs:
         run: |
           ls -lh work/kernel/
           file work/kernel/bzImage
-          file work/kernel/vmlinux | head -2
-          nm work/kernel/vmlinux 2>/dev/null | grep -c ' [Tt] ' || echo NM_FAIL
 
-      - name: make rootfs
+      - name: make rootfs with static ip
         run: |
           mkdir -p work/img
           cd syzkaller/tools
           sudo ./create-image.sh -d bullseye
           sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa
+          sudo mkdir -p /tmp/mnt
+          sudo mount -o loop bullseye.img /tmp/mnt
+          printf '%s\n' '[Match]' 'Name=eth0' '' '[Network]' 'Address=10.0.2.15/24' 'Gateway=10.0.2.2' 'DNS=10.0.2.3' \
+            | sudo tee /tmp/mnt/etc/systemd/network/10-eth0.network
+          sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
+          sudo ln -sf /lib/systemd/system/systemd-networkd.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
+          ls -la /tmp/mnt/etc/systemd/system/multi-user.target.wants/ | grep networkd || echo LINK_FAIL
+          sudo umount /tmp/mnt
           cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/"
           cd "$GITHUB_WORKSPACE/work/img"
           chmod 600 bullseye.id_rsa
@@ -99,9 +103,9 @@ jobs:
           echo "manager pid $MPID, will run for $MINS minutes"
           for i in $(seq 1 $MINS); do
             sleep 60
-            if [ $((i % 10)) -eq 0 ]; then
+            if [ $((i % 5)) -eq 0 ]; then
               echo "--- minute $i ---"
-              grep -E 'executed|corpus|coverage|crash' syz-manager.log | tail -3 || true
+              grep -E 'executed programs|corpus|coverage|crash' syz-manager.log | tail -3 || true
             fi
           done
           sudo pkill -INT -f 'syz-manager' || true
@@ -112,21 +116,20 @@ jobs:
       - name: collect results
         if: always()
         run: |
-          if [ ! -d work ]; then echo "WORK_DIR_MISSING (earlier step failed)"; exit 0; fi
+          if [ ! -d work ]; then echo "WORK_DIR_MISSING"; exit 0; fi
           cd work
           echo "=== crash count ==="
           find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
-          echo "=== crash files ==="
-          find syz-workdir/crashes -name '*.log' 2>/dev/null | head -20
-          echo "=== manager log (key lines) ==="
-          grep -E 'executed programs|corpus|coverage|crash|fuzzing|VM|error' syz-manager.log 2>/dev/null | tail -40 || true
           echo "=== manager log tail ==="
-          tail -50 syz-manager.log 2>/dev/null || echo NO_LOG
+          tail -60 syz-manager.log 2>/dev/null || echo NO_LOG
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: syz-results
-          path: work/
+          path: |
+            work/syz-manager.log
+            work/config.cfg
+            work/syz-workdir/crashes/**
           if-no-files-found: warn
           retention-days: 90
