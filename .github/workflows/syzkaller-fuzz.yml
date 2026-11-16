@@ -14,7 +14,7 @@ on:
       fuzz_minutes:
         description: 'Fuzz duration in minutes'
         required: true
-        default: '60'
+        default: '15'
       sandbox:
         description: 'sandbox: none or setuid'
         required: true
@@ -62,29 +62,23 @@ jobs:
           run-id: ${{ github.event.inputs.kernel_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: inspect kernel
-        run: |
-          ls -lh work/kernel/
-          file work/kernel/bzImage
-
-      - name: make rootfs with static ip
+      - name: make rootfs with dhcp client
         run: |
           mkdir -p work/img
           cd syzkaller/tools
-          sudo ./create-image.sh -d bullseye
+          echo "=== 关键: 加装 isc-dhcp-client + ifupdown，否则 /etc/network/interfaces 的 dhcp 配置不会生效 ==="
+          sudo env ADD_PACKAGE="isc-dhcp-client,ifupdown,iproute2,net-tools,openssh-server,curl,tar,gcc,libc6-dev,time,strace,sudo,less,psmisc" \
+            ./create-image.sh -d bullseye
           sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa
+          echo "=== 验证镜像内是否有 dhclient ==="
           sudo mkdir -p /tmp/mnt
           sudo mount -o loop bullseye.img /tmp/mnt
-          printf '%s\n' '[Match]' 'Name=eth0' '' '[Network]' 'Address=10.0.2.15/24' 'Gateway=10.0.2.2' 'DNS=10.0.2.3' \
-            | sudo tee /tmp/mnt/etc/systemd/network/10-eth0.network
-          sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
-          sudo ln -sf /lib/systemd/system/systemd-networkd.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/systemd-networkd.service
-          ls -la /tmp/mnt/etc/systemd/system/multi-user.target.wants/ | grep networkd || echo LINK_FAIL
+          sudo ls -la /tmp/mnt/sbin/dhclient 2>/dev/null || echo NO_DHCLIENT
+          sudo ls -la /tmp/mnt/sbin/ifup 2>/dev/null || echo NO_IFUP
+          sudo cat /tmp/mnt/etc/network/interfaces
           sudo umount /tmp/mnt
           cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/"
-          cd "$GITHUB_WORKSPACE/work/img"
-          chmod 600 bullseye.id_rsa
-          ls -lh
+          ls -lh "$GITHUB_WORKSPACE/work/img/"
 
       - name: write config
         run: |
@@ -98,19 +92,20 @@ jobs:
         run: |
           cd work
           MINS=${{ github.event.inputs.fuzz_minutes }}
-          sudo -E "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
+          echo "=== 关键改动: 不用 sudo（/dev/kvm 已 0666，文件属 runner），避免 sudo 破坏 ssh 管道 ==="
+          "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
           MPID=$!
           echo "manager pid $MPID, will run for $MINS minutes"
           for i in $(seq 1 $MINS); do
             sleep 60
-            if [ $((i % 5)) -eq 0 ]; then
+            if [ $((i % 3)) -eq 0 ]; then
               echo "--- minute $i ---"
               grep -E 'executed programs|corpus|coverage|crash' syz-manager.log | tail -3 || true
             fi
           done
-          sudo pkill -INT -f 'syz-manager' || true
+          pkill -INT -f 'syz-manager' || true
           sleep 25
-          sudo pkill -f 'syz-manager' || true
+          pkill -f 'syz-manager' || true
           echo "=== manager stopped ==="
 
       - name: collect results
@@ -118,10 +113,14 @@ jobs:
         run: |
           if [ ! -d work ]; then echo "WORK_DIR_MISSING"; exit 0; fi
           cd work
-          echo "=== crash count ==="
-          find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
-          echo "=== manager log tail ==="
+          echo "=========== HEAD 100 ==========="
+          head -100 syz-manager.log 2>/dev/null || echo NO_LOG
+          echo "=========== TAIL 60 ==========="
           tail -60 syz-manager.log 2>/dev/null || echo NO_LOG
+          echo "=========== crashes ==========="
+          find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
+          echo "=========== keywords ==========="
+          grep -inE 'executor|kcov|enable|fail|error|denied' syz-manager.log 2>/dev/null | head -30 || true
 
       - uses: actions/upload-artifact@v4
         if: always()
