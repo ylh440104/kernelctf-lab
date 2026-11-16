@@ -10,12 +10,14 @@
   "sandbox": "@SANDBOX@",
   "procs": 2,
   "type": "qemu",
+  "cover": true,
   "vm": {
     "count": 2,
     "kernel": "@WS@/work/kernel/bzImage",
     "cpu": 2,
     "mem": 3072,
     "network_device": "virtio-net-pci",
-    "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0"
+    "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0",
+    "qemu_args": "-enable-kvm -cpu host -machine q35 -smp 2 -m 3072"
   }
 }
