@@ -1,0 +1,105 @@
+name: syz-diag2
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_run_id:
+        required: true
+        default: '43774253899'
+      target:
+        required: true
+        default: 'hardened'
+
+jobs:
+  diag:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs \
+            build-essential flex bison libssl-dev libelf-dev libncurses-dev \
+            bc pkg-config debootstrap
+
+      - name: build syzkaller
+        run: |
+          git clone --depth 1 https://github.com/google/syzkaller.git
+          cd syzkaller
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -8
+          ls -lh bin/linux_amd64/syz-executor
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: download kernel
+        uses: actions/download-artifact@v4
+        with:
+          name: kernelobj-${{ github.event.inputs.target }}-kcov
+          path: work/kernel
+          run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: make rootfs with dhcp and executor
+        run: |
+          mkdir -p work/img
+          cd syzkaller/tools
+          sudo env ADD_PACKAGE="isc-dhcp-client,ifupdown,iproute2,net-tools,openssh-server,curl,tar,gcc,libc6-dev,time,strace,sudo,less,psmisc" ./create-image.sh -d bullseye
+          sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa
+          IMG="$PWD/bullseye.img"
+          sudo mkdir -p /tmp/mnt
+          sudo mount -o loop "$IMG" /tmp/mnt
+          sudo cp "$GITHUB_WORKSPACE/syzkaller/bin/linux_amd64/syz-executor" /tmp/mnt/root/
+          sudo chmod +x /tmp/mnt/root/syz-executor
+          echo "=== debugfs fstab ==="
+          sudo cat /tmp/mnt/etc/fstab
+          sudo umount /tmp/mnt
+          cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/"
+
+      - name: boot and run executor manually
+        run: |
+          set -x
+          IMG="$GITHUB_WORKSPACE/work/img/bullseye.img"
+          KEY="$GITHUB_WORKSPACE/work/img/bullseye.id_rsa"
+          chmod 600 "$KEY"
+          qemu-system-x86_64 -accel kvm -cpu host -m 2048 -smp 2 \
+            -kernel work/kernel/bzImage \
+            -drive file="$IMG",format=raw,if=virtio \
+            -append "root=/dev/sda rw console=ttyS0 oops=panic panic=1 net.ifnames=0" \
+            -netdev user,id=n0,hostfwd=tcp::10022-:22 \
+            -device virtio-net-pci,netdev=n0 \
+            -nographic -no-reboot > vm2.log 2>&1 &
+          QPID=$!
+          echo "qemu=$QPID"
+          SSH="ssh -i $KEY -p 10022 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o LogLevel=ERROR root@127.0.0.1"
+          sleep 100
+          echo "=== SSH test ==="
+          $SSH 'echo OK; ip addr show eth0 | grep inet; uname -r' || echo SSH_FAIL
+          echo "=== debugfs / kcov ==="
+          $SSH 'mount | grep debugfs; ls -l /sys/kernel/debug/kcov 2>&1' || true
+          echo "=== run executor (ipc mode, 10s) ==="
+          $SSH 'cd /root && timeout 10 ./syz-executor -ipc -sandbox=none -cover=1 2>&1 | head -40; echo "EXIT=$?"' || echo EXEC_SSH_FAIL
+          echo "=== run executor (no cover) ==="
+          $SSH 'cd /root && timeout 10 ./syz-executor -ipc -sandbox=none 2>&1 | head -40; echo "EXIT2=$?"' || true
+          echo "=== modalias/proc check ==="
+          $SSH 'ls -l /proc/self/ns/ 2>&1 | head; cat /proc/sys/kernel/unprivileged_bpf_disabled' || true
+          kill $QPID 2>/dev/null || true
+          sleep 2
+          echo "=== vm2.log tail ==="
+          tail -30 vm2.log
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: diag2
+          path: vm2.log
+          retention-days: 30
