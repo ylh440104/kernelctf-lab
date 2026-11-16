@@ -3,27 +3,27 @@ name: syzkaller-fuzz
 on:
   workflow_dispatch:
     inputs:
-      release_tag:
-        description: 'Release tag with kernel artifacts'
+      kernel_run_id:
+        description: 'Run ID of build-kcov-v3'
         required: true
-        default: 'kcov-v3-1'
+        default: '43774253899'
       target:
-        description: 'lts-kasan or hardened'
+        description: 'hardened or lts-kasan'
         required: true
-        default: 'lts-kasan'
+        default: 'hardened'
       fuzz_minutes:
         description: 'Fuzz duration in minutes'
         required: true
-        default: '180'
+        default: '60'
       sandbox:
-        description: 'sandbox mode: none or setuid'
+        description: 'sandbox: none or setuid'
         required: true
         default: 'none'
 
 jobs:
   fuzz:
     runs-on: ubuntu-latest
-    timeout-minutes: 350
+    timeout-minutes: 355
     steps:
       - uses: actions/checkout@v4
 
@@ -54,21 +54,24 @@ jobs:
           ls -l /dev/kvm
           test -w /dev/kvm && echo KVM_READY || echo KVM_FAIL
 
-      - name: download kernel from release
+      - name: download kernel artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: kernelobj-${{ github.event.inputs.target }}-kcov
+          path: work/kernel
+          run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: inspect kernel
         run: |
-          TAG="${{ github.event.inputs.release_tag }}"
-          BASE="https://github.com/ylh440104/kernelctf-lab/releases/download/$TAG"
-          TGT="${{ github.event.inputs.target }}"
-          if [ "$TGT" = "hardened" ]; then N=hardened-kcov; else N=lts-kasan-kcov; fi
-          mkdir -p work/kernel work/img
-          curl -fsSL "$BASE/kernel-$N/bzImage" -o work/kernel/bzImage
-          curl -fsSL "$BASE/kernel-$N/vmlinux" -o work/kernel/vmlinux
-          chmod +x work/kernel/bzImage
           ls -lh work/kernel/
+          file work/kernel/bzImage
           file work/kernel/vmlinux | head -2
+          nm work/kernel/vmlinux 2>/dev/null | grep -c ' [Tt] ' || echo NM_FAIL
 
       - name: make rootfs
         run: |
+          mkdir -p work/img
           cd syzkaller/tools
           sudo ./create-image.sh -d bullseye
           sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa
@@ -76,23 +79,6 @@ jobs:
           cd "$GITHUB_WORKSPACE/work/img"
           chmod 600 bullseye.id_rsa
           ls -lh
-
-      - name: sanity boot test
-        run: |
-          qemu-system-x86_64 -accel kvm -m 2048 -smp 2 \
-            -kernel work/kernel/bzImage \
-            -drive file=work/img/bullseye.img,format=raw,if=virtio \
-            -append "root=/dev/vda console=ttyS0" \
-            -nographic -no-reboot > boot-test.log 2>&1 &
-          QPID=$!
-          sleep 75
-          kill $QPID 2>/dev/null || true
-          sleep 2
-          echo "=== head ==="
-          head -50 boot-test.log
-          echo "=== tail ==="
-          tail -30 boot-test.log
-          if grep -qE 'login:|syzbot login' boot-test.log; then echo BOOT_OK; else echo BOOT_FAIL; fi
 
       - name: write config
         run: |
@@ -107,10 +93,18 @@ jobs:
           cd work
           MINS=${{ github.event.inputs.fuzz_minutes }}
           sudo -E "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
-          sleep $(( MINS * 60 ))
-          sudo pkill -INT -f syz-manager || true
-          sleep 20
-          sudo pkill -f syz-manager || true
+          MPID=$!
+          echo "manager pid $MPID, will run for $MINS minutes"
+          for i in $(seq 1 $MINS); do
+            sleep 60
+            if [ $((i % 10)) -eq 0 ]; then
+              echo "--- minute $i ---"
+              grep -E 'executed|corpus|coverage|crash' syz-manager.log | tail -3 || true
+            fi
+          done
+          sudo pkill -INT -f 'syz-manager' || true
+          sleep 25
+          sudo pkill -f 'syz-manager' || true
           echo "=== manager stopped ==="
 
       - name: collect results
@@ -121,8 +115,10 @@ jobs:
           find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
           echo "=== crash files ==="
           find syz-workdir/crashes -name '*.log' 2>/dev/null | head -20
+          echo "=== manager log (key lines) ==="
+          grep -E 'executed programs|corpus|coverage|crash|fuzzing|VM|error' syz-manager.log | tail -40 || true
           echo "=== manager log tail ==="
-          tail -60 syz-manager.log
+          tail -50 syz-manager.log
 
       - uses: actions/upload-artifact@v4
         if: always()
@@ -132,5 +128,4 @@ jobs:
             work/syz-manager.log
             work/config.cfg
             work/syz-workdir/crashes/**
-            boot-test.log
           retention-days: 90
