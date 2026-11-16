@@ -59,10 +59,10 @@ jobs:
         run: |
           mkdir -p work/img
           cd syzkaller/tools
-          sudo env ADD_PACKAGE="isc-dhcp-client,ifupdown,iproute2,net-tools,openssh-server,curl,tar,gcc,libc6-dev,time,strace,sudo,less,psmisc" ./create-image.sh -d bullseye
-          sudo chown -R "$(id -u):$(id -g)" bullseye.img bullseye.id_rsa
+          sudo env ADD_PACKAGE="isc-dhcp-client,ifupdown,iproute2,net-tools,openssh-server,curl,tar,gcc,libc6-dev,time,strace,sudo,less,psmisc" ./create-image.sh -d trixie
+          sudo chown -R "$(id -u):$(id -g)" trixie.img trixie.id_rsa
           sudo mkdir -p /tmp/mnt
-          sudo mount -o loop bullseye.img /tmp/mnt
+          sudo mount -o loop trixie.img /tmp/mnt
           echo "=== BEFORE: networking.service 是否启用 ==="
           sudo ls -la /tmp/mnt/etc/systemd/system/multi-user.target.wants/ 2>/dev/null | head -5
           echo "=== 启用 networking.service (关键!) ==="
@@ -80,8 +80,8 @@ jobs:
           echo "=== 拷贝 executor 进去备用 ==="
           sudo cp "$GITHUB_WORKSPACE/syzkaller/bin/linux_amd64/syz-executor" /tmp/mnt/root/ 2>/dev/null || true
           sudo umount /tmp/mnt
-          cp bullseye.img bullseye.id_rsa "$GITHUB_WORKSPACE/work/img/"
-          chmod 600 "$GITHUB_WORKSPACE/work/img/bullseye.id_rsa"
+          cp trixie.img trixie.id_rsa "$GITHUB_WORKSPACE/work/img/"
+          chmod 600 "$GITHUB_WORKSPACE/work/img/trixie.id_rsa"
           ls -lh "$GITHUB_WORKSPACE/work/img/"
 
       - name: write config
