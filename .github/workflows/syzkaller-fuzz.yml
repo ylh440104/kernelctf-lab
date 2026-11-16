@@ -18,8 +18,8 @@ on:
       shard:
         required: true
         default: '0'
-      corpus_run_id:
-        description: 'run id of artifact to seed corpus from (0 = cold start)'
+      workdir_run_id:
+        description: 'run id of workdir artifact to resume from (0 = cold start)'
         required: true
         default: '0'
 
@@ -62,14 +62,14 @@ jobs:
           run-id: ${{ github.event.inputs.kernel_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: seed corpus
-        if: ${{ github.event.inputs.corpus_run_id != '0' }}
+      - name: resume workdir
+        if: ${{ github.event.inputs.workdir_run_id != '0' }}
         uses: actions/download-artifact@v4
         continue-on-error: true
         with:
-          name: corpus-${{ github.event.inputs.target }}-shard${{ github.event.inputs.shard }}
-          path: work/corpus-seed
-          run-id: ${{ github.event.inputs.corpus_run_id }}
+          name: workdir-${{ github.event.inputs.target }}-shard${{ github.event.inputs.shard }}
+          path: work/restore
+          run-id: ${{ github.event.inputs.workdir_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: make rootfs and enable networking
@@ -95,15 +95,17 @@ jobs:
           cat work/config.cfg
           mkdir -p work/syz-workdir
 
-      - name: seed workdir
-        if: ${{ github.event.inputs.corpus_run_id != '0' }}
+      - name: restore workdir
+        if: ${{ github.event.inputs.workdir_run_id != '0' }}
         run: |
-          if compgen -G "work/corpus-seed/*" > /dev/null; then
-            mkdir -p work/syz-workdir/corpus
-            cp -v work/corpus-seed/* work/syz-workdir/corpus/ 2>/dev/null | wc -l
-            ls work/syz-workdir/corpus | wc -l
+          if compgen -G "work/restore/*" > /dev/null; then
+            echo "restoring workdir:"
+            ls -la work/restore | head -20
+            cp -a work/restore/. work/syz-workdir/
+            echo "restored. workdir now:"
+            ls -la work/syz-workdir | head -20
           else
-            echo "no seed artifact content, cold start"
+            echo "no workdir artifact content, cold start"
           fi
 
       - name: run syz-manager
@@ -115,15 +117,27 @@ jobs:
           echo "manager pid $MPID, run for $MINS minutes"
           for i in $(seq 1 $MINS); do
             sleep 60
-            if [ $((i % 10)) -eq 0 ]; then
+            if [ $((i % 15)) -eq 0 ]; then
               echo "--- minute $i ---"
-              grep -E 'exec total|crash' syz-manager.log | tail -3 || true
+              grep -E 'exec total|crash' syz-manager.log | tail -2 || true
             fi
           done
-          pkill -INT -f 'syz-manager' || true
-          sleep 25
-          pkill -f 'syz-manager' || true
+          echo "=== sending SIGINT, waiting graceful shutdown (max 300s) ==="
+          kill -INT $MPID 2>/dev/null || true
+          for w in $(seq 1 60); do
+            if ! kill -0 $MPID 2>/dev/null; then echo "manager exited after $((w*5))s"; break; fi
+            sleep 5
+          done
+          if kill -0 $MPID 2>/dev/null; then
+            echo "still alive, SIGTERM"
+            kill -TERM $MPID 2>/dev/null || true
+            sleep 20
+            kill -9 $MPID 2>/dev/null || true
+          fi
+          sleep 5
           echo "=== manager stopped ==="
+          echo "workdir contents:"
+          ls -la syz-workdir/ | head -25
           ls syz-workdir/corpus 2>/dev/null | wc -l || true
 
       - name: collect results
@@ -131,22 +145,18 @@ jobs:
         run: |
           if [ ! -d work ]; then echo "WORK_DIR_MISSING"; exit 0; fi
           cd work
-          echo "=========== HEAD 80 ==========="
-          head -80 syz-manager.log 2>/dev/null
-          echo "=========== TAIL 60 ==========="
-          tail -60 syz-manager.log 2>/dev/null
+          echo "=========== TAIL 80 ==========="
+          tail -80 syz-manager.log 2>/dev/null
           echo "=========== crash count ==========="
           find syz-workdir/crashes -name '*.log' 2>/dev/null | wc -l
           echo "=========== crash files ==========="
           find syz-workdir/crashes -type f 2>/dev/null | head -20
-          echo "=========== all VM events ==========="
-          grep -E 'VM [0-9]:|boot error|exec total' syz-manager.log 2>/dev/null | tail -30
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: corpus-${{ github.event.inputs.target }}-shard${{ github.event.inputs.shard }}
-          path: work/syz-workdir/corpus
+          name: workdir-${{ github.event.inputs.target }}-shard${{ github.event.inputs.shard }}
+          path: work/syz-workdir
           if-no-files-found: warn
           retention-days: 90
 
@@ -154,9 +164,6 @@ jobs:
         if: always()
         with:
           name: syz-results-${{ github.event.inputs.target }}-shard${{ github.event.inputs.shard }}
-          path: |
-            work/syz-manager.log
-            work/config.cfg
-            work/syz-workdir/crashes/**
+          path: work/syz-manager.log
           if-no-files-found: warn
           retention-days: 90
