@@ -1,0 +1,168 @@
+name: ipv4-fuzz
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_run_id:
+        required: true
+        default: '43774253899'
+      target:
+        required: true
+        default: 'lts-kasan'
+      fuzz_minutes:
+        required: true
+        default: '340'
+      sandbox:
+        required: true
+        default: 'setuid'
+      shard:
+        required: true
+        default: '0'
+      config_file:
+        required: true
+        default: 'syz/syz-config-ipv4.json'
+      workdir_run_id:
+        required: true
+        default: '0'
+
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs debootstrap
+          go version
+
+      - name: build syzkaller
+        run: |
+          git clone --depth 1 https://github.com/google/syzkaller.git
+          cd syzkaller
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -6
+          ls -lh bin/linux_amd64/syz-executor
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: download kernel
+        uses: actions/download-artifact@v4
+        with:
+          name: kernelobj-${{ github.event.inputs.target }}-kcov
+          path: work/kernel
+          run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: resume workdir
+        if: ${{ github.event.inputs.workdir_run_id != '0' }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: workdir-ipv4-${{ github.event.inputs.target }}-shard${{ github.event.inputs.shard }}
+          path: work/restore
+          run-id: ${{ github.event.inputs.workdir_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: make rootfs and enable networking
+        run: |
+          mkdir -p work/img
+          cd syzkaller/tools
+          sudo env ADD_PACKAGE="isc-dhcp-client,ifupdown,iproute2,net-tools,openssh-server,curl,tar,gcc,libc6-dev,time,strace,sudo,less,psmisc" ./create-image.sh -d trixie
+          sudo chown -R "$(id -u):$(id -g)" trixie.img trixie.id_rsa
+          sudo mkdir -p /tmp/mnt
+          sudo mount -o loop trixie.img /tmp/mnt
+          sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
+          sudo ln -sf /lib/systemd/system/networking.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/networking.service
+          sudo umount /tmp/mnt
+          cp trixie.img trixie.id_rsa "$GITHUB_WORKSPACE/work/img/"
+          chmod 600 "$GITHUB_WORKSPACE/work/img/trixie.id_rsa"
+          ls -lh "$GITHUB_WORKSPACE/work/img/"
+
+      - name: write config
+        run: |
+          WS="$GITHUB_WORKSPACE"
+          SB="${{ github.event.inputs.sandbox }}"
+          CFG="${{ github.event.inputs.config_file }}"
+          sed -e "s|@WS@|$WS|g" -e "s|@SANDBOX@|$SB|g" "$WS/$CFG" > work/config.cfg
+          python3 -c "import json;json.load(open('work/config.cfg'));print('CONFIG JSON OK')"
+          head -20 work/config.cfg
+          mkdir -p work/syz-workdir
+
+      - name: restore workdir
+        if: ${{ github.event.inputs.workdir_run_id != '0' }}
+        run: |
+          if compgen -G "work/restore/*" > /dev/null; then
+            cp -a work/restore/. work/syz-workdir/
+            echo "restored:"; ls -la work/syz-workdir | head
+          else
+            echo "cold start"
+          fi
+
+      - name: run syz-manager
+        run: |
+          cd work
+          MINS=${{ github.event.inputs.fuzz_minutes }}
+          "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
+          MPID=$!
+          echo "manager pid $MPID for $MINS min"
+          for i in $(seq 1 $MINS); do
+            sleep 60
+            if [ $((i % 15)) -eq 0 ]; then
+              echo "--- minute $i ---"
+              grep -E 'exec total|crash' syz-manager.log | tail -2 || true
+            fi
+          done
+          echo "=== SIGINT graceful ==="
+          kill -INT $MPID 2>/dev/null || true
+          for w in $(seq 1 60); do
+            kill -0 $MPID 2>/dev/null || { echo "exited after $((w*5))s"; break; }
+            sleep 5
+          done
+          kill -9 $MPID 2>/dev/null || true
+          sleep 3
+          echo "=== stopped ==="
+
+      - name: collect results
+        if: always()
+        run: |
+          [ -d work ] || { echo WORK_DIR_MISSING; exit 0; }
+          cd work
+          echo "=========== TAIL 60 ==========="
+          tail -60 syz-manager.log 2>/dev/null
+          echo "=========== COVERAGE SAMPLE ==========="
+          grep -E 'exec total' syz-manager.log 2>/dev/null | tail -5
+          echo "=========== CRASH COUNT ==========="
+          find syz-workdir/crashes -name 'description' 2>/dev/null | wc -l
+          echo "=========== CRASH LIST ==========="
+          for f in syz-workdir/crashes/*/description; do
+            [ -f "$f" ] && cat "$f"
+          done
+          echo "=========== ERRORS ==========="
+          grep -iE 'FATAL|failed to|invalid|unknown' syz-manager.log 2>/dev/null | head -10
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workdir-ipv4-${{ github.event.inputs.target }}-shard${{ github.event.inputs.shard }}
+          path: work/syz-workdir
+          if-no-files-found: warn
+          retention-days: 90
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ipv4-results-${{ github.event.inputs.target }}-shard${{ github.event.inputs.shard }}
+          path: work/syz-manager.log
+          if-no-files-found: warn
+          retention-days: 90
