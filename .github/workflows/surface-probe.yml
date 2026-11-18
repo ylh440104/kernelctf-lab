@@ -30,6 +30,7 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
 
       - name: download kernel
         uses: actions/download-artifact@v4
@@ -38,6 +39,15 @@ jobs:
           path: work/kernel
           run-id: ${{ github.event.inputs.kernel_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: verify kernel
+        run: |
+          echo "=== tree ==="
+          find work/kernel -maxdepth 2 -type f | head -10
+          echo "=== sizes ==="
+          ls -la work/kernel/
+          echo "=== file type ==="
+          file work/kernel/bzImage 2>/dev/null || file $(find work/kernel -name 'bzImage' | head -1)
 
       - name: compile probe
         run: |
@@ -51,7 +61,7 @@ jobs:
           curl -sL --max-time 60 https://raw.githubusercontent.com/google/syzkaller/master/tools/create-image.sh -o /tmp/create-image.sh
           chmod +x /tmp/create-image.sh
           cd work/img
-          sudo env ADD_PACKAGE="openssh-server,iproute2,net-tools,isc-dhcp-client,ifupdown,procps,util-linux" bash /tmp/create-image.sh -d trixie 2>&1 | tail -5
+          sudo env ADD_PACKAGE="openssh-server,iproute2,net-tools,isc-dhcp-client,ifupdown,procps,util-linux" bash /tmp/create-image.sh -d trixie 2>&1 | tail -3
           sudo chown -R "$(id -u):$(id -g)" trixie.img trixie.id_rsa
           sudo mkdir -p /tmp/mnt && sudo mount -o loop trixie.img /tmp/mnt
           sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
@@ -68,9 +78,14 @@ jobs:
 
       - name: boot and capture serial
         run: |
+          K=$(find work/kernel -name 'bzImage' | head -1)
+          echo "KERNEL=$K"
           IMG="$GITHUB_WORKSPACE/work/img/trixie.img"
-          timeout 300 qemu-system-x86_64 -enable-kvm -cpu host -m 3072 -smp 2 -kernel work/kernel/bzImage -hda "$IMG" -append "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0" -net nic,model=e1000 -net user -nographic -no-reboot > serial.log 2>&1 || true
+          timeout 240 qemu-system-x86_64 -enable-kvm -cpu host -m 3072 -smp 2 -kernel "$K" -drive "file=$IMG,format=raw,if=virtio" -append "root=/dev/vda console=ttyS0 oops=panic panic=1 net.ifnames=0" -netdev user,id=n0 -device virtio-net-pci,netdev=n0 -nographic -no-reboot > serial.log 2>&1 || true
           echo "=== serial size: $(wc -c < serial.log) ==="
+          echo "=== first 30 ==="
+          head -30 serial.log
+          echo "=== autorun ==="
           sed -n '/AUTORUN START/,/AUTORUN END/p' serial.log
 
       - uses: actions/upload-artifact@v4
