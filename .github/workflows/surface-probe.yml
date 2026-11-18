@@ -69,14 +69,14 @@ jobs:
           sudo cp "$GITHUB_WORKSPACE/work/bin/probe" /tmp/mnt/root/probe
           sudo chmod 755 /tmp/mnt/root/probe
           grep -q '^nobody:' /tmp/mnt/etc/passwd || echo 'nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin' | sudo tee -a /tmp/mnt/etc/passwd > /dev/null
-          printf '%s\n' '#!/bin/sh' 'echo "########## AUTORUN START ##########"' 'echo "===== AS ROOT ====="' '/root/probe' 'echo "===== AS NOBODY ====="' 'cp /root/probe /tmp/probe' 'chmod 755 /tmp/probe' 'setpriv --reuid=65534 --regid=65534 --clear-groups /tmp/probe' 'echo "===== DMESG TAIL ====="' 'dmesg | tail -40' 'echo "########## AUTORUN END ##########"' | sudo tee /tmp/mnt/root/autorun.sh > /dev/null
+          printf '%s\n' '#!/bin/sh' 'exec >> /root/result.txt 2>&1' 'echo "===== AS ROOT ====="' '/root/probe' 'echo "===== AS NOBODY ====="' 'cp /root/probe /tmp/probe' 'chmod 755 /tmp/probe' 'setpriv --reuid=65534 --regid=65534 --clear-groups /tmp/probe' 'echo "===== DMESG TAIL ====="' 'dmesg | tail -40' 'echo "===== DONE ====="' | sudo tee /tmp/mnt/root/autorun.sh > /dev/null
           sudo chmod 755 /tmp/mnt/root/autorun.sh
-          printf '%s\n' '[Unit]' 'Description=autorun probe' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/root/autorun.sh' 'StandardOutput=tty' 'StandardError=tty' 'TTYPath=/dev/ttyS0' 'StandardInput=null' 'Restart=no' '[Install]' 'WantedBy=multi-user.target' | sudo tee /tmp/mnt/etc/systemd/system/autorun.service > /dev/null
+          printf '%s\n' '[Unit]' 'Description=autorun probe' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/root/autorun.sh' 'StandardOutput=null' 'StandardError=null' 'TTYPath=/dev/ttyS0' 'StandardInput=null' 'Restart=no' '[Install]' 'WantedBy=multi-user.target' | sudo tee /tmp/mnt/etc/systemd/system/autorun.service > /dev/null
           sudo ln -sf /etc/systemd/system/autorun.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/autorun.service
           sudo umount /tmp/mnt
           ls -lh trixie.img
 
-      - name: boot and capture serial
+      - name: boot then read result from image
         run: |
           K=$(find work/kernel -name 'bzImage' | head -1)
           echo "KERNEL=$K"
