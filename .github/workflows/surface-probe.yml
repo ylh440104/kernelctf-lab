@@ -16,7 +16,7 @@ on:
 jobs:
   probe:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
@@ -30,7 +30,6 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-          ls -l /dev/kvm
 
       - name: download kernel
         uses: actions/download-artifact@v4
@@ -43,17 +42,16 @@ jobs:
       - name: compile probe
         run: |
           mkdir -p work/bin
-          gcc -O1 -static -o work/bin/probe "${{ github.event.inputs.probe_file }}" 2>&1 | tail -5
+          gcc -O1 -static -o work/bin/probe "${{ github.event.inputs.probe_file }}"
           ls -lh work/bin/probe
-          file work/bin/probe | head -1
 
-      - name: make rootfs
+      - name: make rootfs with autorun probe
         run: |
           mkdir -p work/img
           curl -sL --max-time 60 https://raw.githubusercontent.com/google/syzkaller/master/tools/create-image.sh -o /tmp/create-image.sh
           chmod +x /tmp/create-image.sh
           cd work/img
-          sudo env ADD_PACKAGE="openssh-server,iproute2,net-tools,isc-dhcp-client,ifupdown,strace,procps" bash /tmp/create-image.sh -d trixie 2>&1 | tail -8
+          sudo env ADD_PACKAGE="openssh-server,iproute2,net-tools,isc-dhcp-client,ifupdown,procps,util-linux" bash /tmp/create-image.sh -d trixie 2>&1 | tail -5
           sudo chown -R "$(id -u):$(id -g)" trixie.img trixie.id_rsa
           sudo mkdir -p /tmp/mnt && sudo mount -o loop trixie.img /tmp/mnt
           sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
@@ -61,49 +59,24 @@ jobs:
           sudo cp "$GITHUB_WORKSPACE/work/bin/probe" /tmp/mnt/root/probe
           sudo chmod 755 /tmp/mnt/root/probe
           grep -q '^nobody:' /tmp/mnt/etc/passwd || echo 'nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin' | sudo tee -a /tmp/mnt/etc/passwd > /dev/null
+          printf '%s\n' '#!/bin/sh' 'exec > /dev/console 2>&1' 'echo "########## AUTORUN START ##########"' 'echo "===== AS ROOT ====="' '/root/probe' 'echo "===== AS NOBODY ====="' 'cp /root/probe /tmp/probe' 'chmod 755 /tmp/probe' 'setpriv --reuid=65534 --regid=65534 --clear-groups /tmp/probe' 'echo "===== DMESG TAIL ====="' 'dmesg | tail -40' 'echo "########## AUTORUN END ##########"' | sudo tee /tmp/mnt/root/autorun.sh > /dev/null
+          sudo chmod 755 /tmp/mnt/root/autorun.sh
+          printf '%s\n' '[Unit]' 'Description=autorun probe' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/root/autorun.sh' 'StandardOutput=tty' 'StandardError=tty' 'TTYPath=/dev/ttyS0' '[Install]' 'WantedBy=multi-user.target' | sudo tee /tmp/mnt/etc/systemd/system/autorun.service > /dev/null
+          sudo ln -sf /etc/systemd/system/autorun.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/autorun.service
           sudo umount /tmp/mnt
-          chmod 600 trixie.id_rsa
-          ls -lh
+          ls -lh trixie.img
 
-      - name: boot and run probe
+      - name: boot and capture serial
         run: |
           IMG="$GITHUB_WORKSPACE/work/img/trixie.img"
-          KEY="$GITHUB_WORKSPACE/work/img/trixie.id_rsa"
-          chmod 600 "$KEY"
-          qemu-system-x86_64 -enable-kvm -cpu host -m 3072 -smp 2 \
-            -kernel work/kernel/bzImage \
-            -hda "$IMG" \
-            -append "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0" \
-            -net nic,model=e1000 -net user,hostfwd=tcp::10022-:22 \
-            -nographic -no-reboot > vm.log 2>&1 &
-          QPID=$!
-          echo "qemu=$QPID"
-          for t in $(seq 1 8); do
-            sleep 20
-            nc -z 127.0.0.1 10022 2>/dev/null && { echo "SSH READY at t=$t"; break; }
-            echo "waiting $t"
-          done
-          SSH="ssh -i $KEY -p 10022 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -o LogLevel=ERROR root@127.0.0.1"
-          echo "=== as root ==="
-          $SSH '/root/probe' 2>&1 | tee probe_root.txt || echo PROBE_ROOT_FAIL
-          echo
-          echo "=== as nobody (uid 65534) ==="
-          $SSH 'chmod 755 /root; cp /root/probe /tmp/probe; chmod 755 /tmp/probe; setpriv --reuid=65534 --regid=65534 --clear-groups /tmp/probe' 2>&1 | tee probe_nobody.txt || echo PROBE_NOBODY_FAIL
-          echo
-          echo "=== dmesg tail ==="
-          $SSH 'dmesg | tail -20' 2>&1 || true
-          kill $QPID 2>/dev/null || true
-          sleep 2
-          echo "=== vm.log tail ==="
-          tail -5 vm.log
+          timeout 300 qemu-system-x86_64 -enable-kvm -cpu host -m 3072 -smp 2 -kernel work/kernel/bzImage -hda "$IMG" -append "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0" -net nic,model=e1000 -net user -nographic -no-reboot > serial.log 2>&1 || true
+          echo "=== serial size: $(wc -c < serial.log) ==="
+          sed -n '/AUTORUN START/,/AUTORUN END/p' serial.log
 
       - uses: actions/upload-artifact@v4
         if: always()
         with:
           name: probe-output
-          path: |
-            probe_root.txt
-            probe_nobody.txt
-            vm.log
+          path: serial.log
           if-no-files-found: warn
           retention-days: 30
