@@ -1,0 +1,113 @@
+name: build-v73-kasan
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+          df -h /
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential flex bison libssl-dev libelf-dev \
+            libncurses-dev bc pkg-config dwarves zstd cpio kmod rsync git
+
+      - name: fetch linux v7.3
+        run: |
+          git init linux && cd linux
+          git remote add origin https://github.com/torvalds/linux.git
+          git fetch --depth 1 origin c03c1a14507dfaf8b856c2608f9ac216021fc222
+          git checkout FETCH_HEAD
+          echo "HEAD=$(git rev-parse HEAD)"
+          head -5 Makefile
+
+      - name: base config
+        run: |
+          cd linux
+          curl -fsSL 'https://storage.googleapis.com/kernelctf-build/releases/lts-6.12.116-kasan/.config' -o .config
+          wc -l .config
+
+      - name: enable kasan kcov pure upstream
+        run: |
+          cd linux
+          ./scripts/config --file .config \
+            -e KASAN \
+            -e KASAN_GENERIC \
+            -e KASAN_INLINE \
+            -e KASAN_STACK \
+            -e KASAN_OUTLINE \
+            -e HAVE_ARCH_KASAN \
+            -e KCOV \
+            -e KCOV_ENABLE_COMPARISONS \
+            -e KCOV_INSTRUMENT_ALL \
+            -e DEBUG_FS \
+            -e DEBUG_INFO_NONE \
+            -d SLAB_VIRTUAL \
+            -d SLUB_TINY \
+            -d KASAN_VMALLOC \
+            -d DEBUG_INFO \
+            -d DEBUG_INFO_DWARF5 \
+            -d RANDOMIZE_BASE || true
+          ./scripts/config --file .config -e DEBUG_INFO -e DEBUG_INFO_DWARF4 || true
+          make olddefconfig
+          echo '=== verify ==='
+          grep -E 'CONFIG_KASAN=|CONFIG_KCOV=|CONFIG_SLAB_VIRTUAL|CONFIG_DEBUG_INFO=|CONFIG_SLUB_TINY' .config
+          echo "=== config lines: $(wc -l < .config) ==="
+
+      - name: build bzImage
+        run: |
+          cd linux
+          make -j$(nproc) bzImage > /tmp/build.log 2>&1 || { echo BUILD_FAIL; tail -80 /tmp/build.log; exit 1; }
+          echo BUILD_OK
+          ls -lh arch/x86/boot/bzImage
+
+      - name: build vmlinux with symbols
+        run: |
+          cd linux
+          make -j$(nproc) vmlinux > /tmp/vmlog 2>&1 || { echo VMLINUX_FAIL; tail -60 /tmp/vmlog; exit 1; }
+          ls -lh vmlinux
+          nm vmlinux | grep -cE ' [TtDdBbRr] ' || true
+          nm vmlinux | grep -m3 -E ' (T|t) __x64_sys_' || true
+
+      - name: verify kasan in kernel
+        run: |
+          cd linux
+          echo '=== KASAN symbols in vmlinux ==='
+          nm vmlinux | grep -cE '__asan_load|__asan_store|kasan_report' || true
+          nm vmlinux | grep -m5 -E '__asan_load8|kasan_report' || true
+          echo '=== SLAB_VIRTUAL symbols (should be 0) ==='
+          nm vmlinux | grep -c 'slub_tlbflush_worker' || true
+
+      - name: package
+        run: |
+          mkdir -p dist
+          cp linux/arch/x86/boot/bzImage dist/bzImage
+          cp linux/vmlinux dist/vmlinux
+          cp linux/.config dist/.config
+          cd dist && sha256sum bzImage vmlinux .config > SHA256SUMS && cat SHA256SUMS
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kernel-v73-kasan
+          path: dist/*
+          if-no-files-found: warn
+          retention-days: 90
+
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs
+          path: |
+            /tmp/build.log
+            /tmp/vmlog
+          if-no-files-found: warn
+          retention-days: 30
