@@ -1,0 +1,41 @@
+diff --git a/drivers/md/md.c b/drivers/md/md.c
+index d1465bcd8..a3c8ce8d5 100644
+--- a/drivers/md/md.c
++++ b/drivers/md/md.c
+@@ -1610,7 +1610,7 @@ static void super_90_sync(struct mddev *mddev, struct md_rdev *rdev)
+ {
+ 	mdp_super_t *sb;
+ 	struct md_rdev *rdev2;
+-	int next_spare = mddev->raid_disks;
++	int next_spare = min_t(int, mddev->raid_disks, MD_SB_DISKS);
+ 
+ 	/* make rdev->sb match mddev data..
+ 	 *
+@@ -1643,7 +1643,7 @@ static void super_90_sync(struct mddev *mddev, struct md_rdev *rdev)
+ 	sb->ctime = clamp_t(time64_t, mddev->ctime, 0, U32_MAX);
+ 	sb->level = mddev->level;
+ 	sb->size = mddev->dev_sectors / 2;
+-	sb->raid_disks = mddev->raid_disks;
++	sb->raid_disks = min_t(int, mddev->raid_disks, MD_SB_DISKS);
+ 	sb->md_minor = mddev->md_minor;
+ 	sb->not_persistent = 0;
+ 	sb->utime = clamp_t(time64_t, mddev->utime, 0, U32_MAX);
+@@ -1727,7 +1727,7 @@ static void super_90_sync(struct mddev *mddev, struct md_rdev *rdev)
+ 			d->state |= (1<<MD_DISK_FAILFAST);
+ 	}
+ 	/* now set the "removed" and "faulty" bits on any missing devices */
+-	for (i=0 ; i < mddev->raid_disks ; i++) {
++	for (i=0 ; i < min_t(int, mddev->raid_disks, MD_SB_DISKS) ; i++) {
+ 		mdp_disk_t *d = &sb->disks[i];
+ 		if (d->state == 0 && d->number == 0) {
+ 			d->number = i;
+@@ -4441,6 +4441,9 @@ raid_disks_store(struct mddev *mddev, const char *buf, size_t len)
+ 		mddev->delta_disks = n - olddisks;
+ 		mddev->raid_disks = n;
+ 		mddev->reshape_backwards = (mddev->delta_disks < 0);
++	} else if (mddev->persistent && mddev->major_version == 0 &&
++		   n > MD_SB_DISKS) {
++		err = -EINVAL;
+ 	} else
+ 		mddev->raid_disks = n;
+ out_unlock:
