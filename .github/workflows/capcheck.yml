@@ -1,0 +1,52 @@
+name: capcheck
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: who am i
+        run: |
+          id
+          echo "--- capabilities ---"
+          grep Cap /proc/self/status
+          echo "--- decode CapEff ---"
+          command -v capsh >/dev/null && capsh --decode=$(grep CapEff /proc/self/status | awk '{print $2}') || echo "capsh not available"
+          echo "--- sudo root caps ---"
+          sudo grep Cap /proc/self/status
+          sudo sh -c 'command -v capsh >/dev/null && capsh --decode=$(grep CapEff /proc/self/status | awk "{print \$2}") || echo no-capsh'
+
+      - name: sysfs visibility
+        run: |
+          echo "--- /sys/block ---"
+          ls -la /sys/block/ 2>&1 | head -20
+          echo "--- /sys/module/md_mod ---"
+          ls -la /sys/module/md_mod/parameters/ 2>&1 | head -10
+          echo "--- can we write new_array? ---"
+          sudo sh -c 'echo md9 > /sys/module/md_mod/parameters/new_array' 2>&1 && echo "WRITE_OK" || echo "WRITE_FAIL"
+          echo "--- md9 created? ---"
+          ls -la /sys/block/md9/ 2>&1 | head -10
+          echo "--- array_state perms ---"
+          ls -la /sys/block/md9/md/array_state 2>&1
+
+      - name: can we reach array_state clear
+        run: |
+          if [ -d /sys/block/md9 ]; then
+            echo "md9 exists, trying array_state=clear"
+            sudo sh -c 'echo clear > /sys/block/md9/md/array_state' 2>&1 && echo "CLEAR_OK" || echo "CLEAR_FAIL"
+            echo "--- dmesg after ---"
+            sudo dmesg 2>/dev/null | tail -30
+          else
+            echo "NO_MD9"
+          fi
+
+      - name: mount namespace isolation
+        run: |
+          echo "--- mount info for /sys ---"
+          mount | grep -E ' /sys | /sys/block ' | head -5
+          echo "--- is /sys read-only? ---"
+          touch /sys/test_write 2>&1 && echo "SYS_WRITABLE" || echo "SYS_READONLY"
+          echo "--- unshare test ---"
+          unshare --mount --map-root-user echo "unshare ok" 2>&1 | head -3
