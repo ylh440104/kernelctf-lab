@@ -44,8 +44,11 @@ jobs:
           cd syzkaller
           make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -12
           echo '=== built binaries ==='
-          ls -lh bin/syz-manager bin/syz-execprog bin/syz-sysgen 2>/dev/null
-          ls -lh bin/linux_amd64/syz-executor
+          ls -lh bin/ 2>/dev/null | head -20
+          ls -lh bin/linux_amd64/ 2>/dev/null | head -10
+          test -x bin/syz-manager || { echo 'NO syz-manager'; exit 1; }
+          test -x bin/linux_amd64/syz-executor || { echo 'NO executor'; exit 1; }
+          echo BINARIES_OK
 
       - name: enable kvm
         run: |
