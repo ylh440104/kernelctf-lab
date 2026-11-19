@@ -138,7 +138,7 @@ int main(void)
 	rc = dm_suspend(DEV, 1);
 	st("DM_DEV_SUSPEND suspend", rc);
 
-	rc = dm_load(DEV, "integrity", 2048, "/dev/ram0 0 16 J 0");
+	rc = dm_load(DEV, "integrity", 2048, "/dev/ram0 0 32 J 0");
 	st("DM_TABLE_LOAD (no hash)", rc);
 	if (rc) dmesg_tail();
 
