@@ -14,9 +14,9 @@
 #include <sched.h>
 
 #define MD_MAJOR 9
-#define SET_ARRAY_INFO 0x40480923
-#define ADD_NEW_DISK 0x40140921
-#define RUN_ARRAY 0x80080926
+#define SET_ARRAY_INFO 0xc04c0923
+#define ADD_NEW_DISK 0xc0140921
+#define RUN_ARRAY 0x926
 #define STOP_ARRAY 0x8092
 
 #define MD_DISK_ACTIVE 2
