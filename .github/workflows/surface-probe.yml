@@ -69,7 +69,7 @@ jobs:
           sudo cp "$GITHUB_WORKSPACE/work/bin/probe" /tmp/mnt/root/probe
           sudo chmod 755 /tmp/mnt/root/probe
           grep -q '^nobody:' /tmp/mnt/etc/passwd || echo 'nobody:x:65534:65534:nobody:/nonexistent:/usr/sbin/nologin' | sudo tee -a /tmp/mnt/etc/passwd > /dev/null
-          printf '%s\n' '#!/bin/sh' 'exec >> /root/result.txt 2>&1' 'echo "===== AS ROOT ====="' '/root/probe' 'echo "===== AS NOBODY ====="' 'cp /root/probe /tmp/probe' 'chmod 755 /tmp/probe' 'setpriv --reuid=65534 --regid=65534 --clear-groups /tmp/probe' 'echo "===== DMESG TAIL ====="' 'dmesg > /root/dmesg.txt' 'grep -cE "KASAN|UBSAN|BUG:|WARNING:" /root/dmesg.txt > /root/hits.txt' 'cat /root/hits.txt' 'grep -E "KASAN|UBSAN|BUG:|WARNING:" /root/dmesg.txt | head -60' 'echo "===== DONE ====="' | sudo tee /tmp/mnt/root/autorun.sh > /dev/null
+          printf '%s\n' '#!/bin/sh' 'exec >> /root/result.txt 2>&1' 'echo "===== AS ROOT ====="' '/root/probe' 'echo "===== AS NOBODY ====="' 'cp /root/probe /tmp/probe' 'chmod 755 /tmp/probe' 'setpriv --reuid=65534 --regid=65534 --clear-groups /tmp/probe' 'echo "===== DMESG FULL ====="' 'dmesg > /root/dmesg.txt 2>&1' 'grep -cE "KASAN|UBSAN|BUG:|WARNING:" /root/dmesg.txt' 'grep -nE "UBSAN|KASAN|array-index|super_90|BUG:|WARNING:" /root/dmesg.txt | head -40' 'dmesg > /root/dmesg.txt' 'grep -cE "KASAN|UBSAN|BUG:|WARNING:" /root/dmesg.txt > /root/hits.txt' 'cat /root/hits.txt' 'grep -E "KASAN|UBSAN|BUG:|WARNING:" /root/dmesg.txt | head -60' 'echo "===== DONE ====="' | sudo tee /tmp/mnt/root/autorun.sh > /dev/null
           sudo chmod 755 /tmp/mnt/root/autorun.sh
           printf '%s\n' '[Unit]' 'Description=autorun probe' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/root/autorun.sh' 'StandardOutput=null' 'StandardError=null' 'TTYPath=/dev/ttyS0' 'StandardInput=null' 'Restart=no' '[Install]' 'WantedBy=multi-user.target' | sudo tee /tmp/mnt/etc/systemd/system/autorun.service > /dev/null
           sudo ln -sf /etc/systemd/system/autorun.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/autorun.service
@@ -98,5 +98,6 @@ jobs:
           path: |
             serial.log
             result.txt
+            dmesg.txt
           if-no-files-found: warn
           retention-days: 30
