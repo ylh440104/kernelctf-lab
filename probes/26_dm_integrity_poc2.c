@@ -8,7 +8,7 @@
 #include <sys/ioctl.h>
 #include <linux/dm-ioctl.h>
 
-#define DEV "dmi0"
+#define DEV "dmi1"
 
 static int ctl_fd = -1;
 
@@ -138,7 +138,7 @@ int main(void)
 	rc = dm_suspend(DEV, 1);
 	st("DM_DEV_SUSPEND suspend", rc);
 
-	rc = dm_load(DEV, "integrity", 2048, "/dev/ram0 0 - J 0");
+	rc = dm_load(DEV, "integrity", 2048, "/dev/ram0 0 16 J 0");
 	st("DM_TABLE_LOAD (no hash)", rc);
 	if (rc) dmesg_tail();
 
