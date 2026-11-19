@@ -78,13 +78,14 @@ jobs:
 
       - name: boot then read result from image
         run: |
+          set +e
           K=$(find work/kernel -name 'bzImage' | head -1)
           echo "KERNEL=$K"
           IMG="$GITHUB_WORKSPACE/work/img/trixie.img"
           for ATTEMPT in 1 2 3; do
             echo "=== boot attempt $ATTEMPT ==="
             timeout 240 qemu-system-x86_64 -enable-kvm -cpu host -m 3072 -smp 2 -kernel "$K" -drive "file=$IMG,format=raw,if=virtio" -append "root=/dev/vda console=ttyS0 oops=panic panic=1 net.ifnames=0" -netdev user,id=n0 -device virtio-net-pci,netdev=n0 -nographic -no-reboot > serial.log 2>&1 || true
-            if grep -q "AUTORUN" serial.log 2>/dev/null || [ -s /tmp/rmnt/root/result.txt ]; then echo "boot ok on attempt $ATTEMPT"; break; fi
+            if grep -q "AUTORUN" serial.log 2>/dev/null; then echo "boot ok on attempt $ATTEMPT"; break; fi
             echo "serial=$(wc -c < serial.log) retry..."
           done
           echo "=== serial size: $(wc -c < serial.log) ==="
