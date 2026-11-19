@@ -23,10 +23,10 @@
 #define MD_DISK_SYNC 3
 
 typedef struct {
-    int minor;
-    int major;
-    int raid_disk;
     int number;
+    int major;
+    int minor;
+    int raid_disk;
     int state;
 } mdu_disk_info_t;
 
