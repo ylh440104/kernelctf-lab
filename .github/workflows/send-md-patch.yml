@@ -1,0 +1,69 @@
+name: send-md-patch
+
+on:
+  workflow_dispatch:
+    inputs:
+      real_name:
+        description: 'real name for Signed-off-by'
+        required: true
+      dry_run:
+        description: 'dry run (true = do not send)'
+        required: true
+        default: 'true'
+
+jobs:
+  send:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: build and send
+        env:
+          GMAIL_USER: ylh440104@gmail.com
+          GMAIL_PASS: ${{ secrets.GMAIL_APP_PASS }}
+          REAL_NAME: ${{ github.event.inputs.real_name }}
+          DRY_RUN: ${{ github.event.inputs.dry_run }}
+        run: |
+          python3 - << 'PYEOF'
+          import os, smtplib, ssl
+          from email.message import EmailMessage
+          from email.utils import formatdate, make_msgid
+
+          USER = os.environ['GMAIL_USER']
+          PASS = os.environ['GMAIL_PASS']
+          NAME = os.environ['REAL_NAME']
+          DRY = os.environ['DRY_RUN'].lower() == 'true'
+
+          subj = 'md: bound raid_disks by max_disks for v0.90 metadata'
+          body = open('md_patch/commit_msg.txt', encoding='utf-8').read()
+          body = body.split('\n---\n')[0]
+          body = body.replace('YOUR_NAME', NAME).replace('YOUR_EMAIL', USER)
+          diff = open('md_patch/md_fix.patch', encoding='utf-8').read()
+
+          msg = EmailMessage()
+          msg['Subject'] = '[PATCH] ' + subj
+          msg['From'] = '%s <%s>' % (NAME, USER)
+          msg['To'] = 'song@kernel.org'
+          msg['Cc'] = 'yukuai3@huawei.com, linux-raid@vger.kernel.org, linux-kernel@vger.kernel.org'
+          msg['Date'] = formatdate(localtime=True)
+          msg['Message-Id'] = make_msgid(domain='gmail.com')
+          msg.set_content(body.rstrip() + '\n\n' + diff, subtype='plain', charset='utf-8')
+
+          print('From   :', msg['From'])
+          print('To     :', msg['To'])
+          print('Cc     :', msg['Cc'])
+          print('Subject:', msg['Subject'])
+          print('Size   :', len(str(msg)))
+          print('--- body head ---')
+          print(body[:400])
+
+          if DRY:
+              print('DRY RUN, not sending')
+          else:
+              ctx = ssl.create_default_context()
+              with smtplib.SMTP_SSL('smtp.gmail.com', 465, context=ctx, timeout=60) as s:
+                  s.login(USER, PASS)
+                  s.send_message(msg)
+              print('SENT OK')
+          PYEOF
