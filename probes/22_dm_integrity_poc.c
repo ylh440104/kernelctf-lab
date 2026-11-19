@@ -35,7 +35,7 @@ static int dm_create(const char *name)
 
 	memset(buf, 0, sizeof(buf));
 	snprintf(dmi->name, sizeof(dmi->name), "%s", name);
-	dmi->flags = DM_EXISTS_FLAG | DM_PERSISTENT_DEV_FLAG;
+	dmi->flags = DM_PERSISTENT_DEV_FLAG;
 	return dm_ioctl(DM_DEV_CREATE, dmi, sizeof(buf));
 }
 
@@ -82,7 +82,7 @@ static int dm_suspend(const char *name, int do_suspend)
 
 	memset(buf, 0, sizeof(buf));
 	snprintf(dmi->name, sizeof(dmi->name), "%s", name);
-	dmi->flags = do_suspend ? 0 : DM_SUSPEND_FLAG;
+	dmi->flags = do_suspend ? DM_SUSPEND_FLAG : 0;
 	return dm_ioctl(DM_DEV_SUSPEND, dmi, sizeof(buf));
 }
 
