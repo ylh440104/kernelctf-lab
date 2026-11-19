@@ -110,6 +110,7 @@ jobs:
               "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0",
               "cpu": 2,
               "mem": 3072,
+              "network_device": "virtio-net-pci",
               "qemu_args": "-enable-kvm -cpu host"
             },
             "cover": true,
