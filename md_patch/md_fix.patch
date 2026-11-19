@@ -1,5 +1,5 @@
 diff --git a/drivers/md/md.c b/drivers/md/md.c
-index d1465bcd8..f514e01ab 100644
+index d1465bcd8..769ed1f09 100644
 --- a/drivers/md/md.c
 +++ b/drivers/md/md.c
 @@ -1610,7 +1610,7 @@ static void super_90_sync(struct mddev *mddev, struct md_rdev *rdev)
@@ -38,7 +38,7 @@ index d1465bcd8..f514e01ab 100644
  	} else
  		mddev->raid_disks = n;
  out_unlock:
-@@ -5029,6 +5031,11 @@ metadata_store(struct mddev *mddev, const char *buf, size_t len)
+@@ -5029,6 +5031,13 @@ metadata_store(struct mddev *mddev, const char *buf, size_t len)
  	err = -ENOENT;
  	if (major >= ARRAY_SIZE(super_types) || super_types[major].name == NULL)
  		goto out_unlock;
@@ -47,6 +47,8 @@ index d1465bcd8..f514e01ab 100644
 +		goto out_unlock;
 +	if (major == 0)
 +		mddev->max_disks = MD_SB_DISKS;
++	else
++		mddev->max_disks = (4096 - 256) / 2;
  	mddev->major_version = major;
  	mddev->minor_version = minor;
  	mddev->persistent = 1;
