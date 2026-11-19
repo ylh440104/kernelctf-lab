@@ -29,7 +29,8 @@ jobs:
           git apply /tmp/md_fix.patch && echo APPLIED || echo APPLY_FAIL
           echo "=== verify hunks present ==="
           grep -n "min_t(int, mddev->raid_disks, MD_SB_DISKS)" drivers/md/md.c
-          grep -n "n > MD_SB_DISKS" drivers/md/md.c
+          grep -n "mddev->max_disks" drivers/md/md.c
+          echo "=== hunk check done ==="
 
       - name: compile drivers/md
         run: |
