@@ -14,9 +14,9 @@
 #include <sched.h>
 
 #define MD_MAJOR 9
-#define SET_ARRAY_INFO 0x404c0923
+#define SET_ARRAY_INFO 0x40480923
 #define ADD_NEW_DISK 0x40140921
-#define RUN_ARRAY 0x40140930
+#define RUN_ARRAY 0x400c0930
 #define STOP_ARRAY 0x8092
 
 #define MD_DISK_ACTIVE 2
@@ -34,7 +34,7 @@ typedef struct {
     int major_version;
     int minor_version;
     int patch_version;
-    unsigned long long ctime;
+    unsigned int ctime;
     int level;
     int size;
     int nr_disks;
@@ -50,6 +50,8 @@ typedef struct {
     int layout;
     int chunk_size;
 } mdu_array_info_t;
+
+typedef struct { int personality; int chunk_size; int max_fault; } mdu_param_t;
 
 static int wr(const char *p, const char *v, int *er)
 {
@@ -141,7 +143,7 @@ int main(int argc, char **argv)
         di.state = (1 << MD_DISK_ACTIVE) | (1 << MD_DISK_SYNC);
         int r2 = ioctl(fd, ADD_NEW_DISK, &di);
 
-        int r3 = ioctl(fd, RUN_ARRAY, 0);
+        mdu_param_t mp; memset(&mp,0,sizeof(mp)); mp.personality=1; int r3 = ioctl(fd, RUN_ARRAY, &mp);
         if (r3 == 0) ok_run++;
         else if (i < 2) printf("r=%d SETINFO=%d ADD=%d RUN=%d e=%d\n", i, r1, r2, r3, errno);
 
