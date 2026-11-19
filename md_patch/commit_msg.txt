@@ -1,4 +1,4 @@
-md: bound raid_disks by MD_SB_DISKS for v0.90 metadata
+md: bound raid_disks by max_disks for v0.90 metadata
 
 commit 1a33a379e6 ("md: reject v0.90 arrays with too many devices")
 bounded sb->raid_disks in super_90_load(), so a crafted superblock can
@@ -6,22 +6,29 @@ no longer describe more devices than a v0.90 superblock is able to hold.
 mddev->raid_disks however is not only loaded from the superblock.
 
 Both the raid_disks sysfs attribute and MD_SET_ARRAY_INFO write it
-directly while the array has no personality, and neither enforces the
-v0.90 limit.  super_90_sync() then lays out the in-superblock device
+directly while the array has no personality, and neither enforces any
+upper bound.  super_90_sync() then lays out the in-superblock device
 table using mddev->raid_disks and walks past the end of the 4 KiB
 superblock page.
 
-Reject raid_disks values that a v0.90 superblock cannot represent, in
-raid_disks_store() when v0.90 metadata is already selected, and in
-metadata_store() when it is selected afterwards, so both orderings are
-covered.  Clamp super_90_sync() as well so an array which already
-carries a larger value cannot walk past sb->disks[].
+mddev->max_disks already carries the limit that the selected metadata
+format can represent, and update_raid_disks() already enforces it, but
+it is only initialized when a superblock is read from a member device.
+An array that has just been created through sysfs or
+MD_SET_ARRAY_INFO has max_disks cleared, so the check is skipped.
 
-The limit only applies when major_version is 0, so v1.x arrays, which
-do not use the in-superblock device table, are unaffected.
+Set max_disks when v0.90 metadata is selected in metadata_store(), and
+reject values the selected format cannot represent in
+raid_disks_store().  Both orderings are then covered: the limit is
+installed either before the value is written or together with the
+metadata choice.  Clamp super_90_sync() as well, so an array which
+already carries a larger value cannot walk past sb->disks[].
+
+v1.x metadata sets max_disks to (4096-256)/2 and is therefore not
+affected by the v0.90 limit.
 
 Fixes: 1a33a379e6 ("md: reject v0.90 arrays with too many devices")
 Signed-off-by: YOUR_NAME <YOUR_EMAIL>
 ---
- drivers/md/md.c | 15 ++++++++++++---
- 1 file changed, 12 insertions(+), 3 deletions(-)
+ drivers/md/md.c | 21 ++++++++++++++++---
+ 1 file changed, 18 insertions(+), 3 deletions(-)
