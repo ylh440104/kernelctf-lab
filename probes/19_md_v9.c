@@ -10,8 +10,46 @@
 #include <sys/ipc.h>
 #include <sys/msg.h>
 #include <sys/stat.h>
+#include <sys/sysmacros.h>
 #include <sched.h>
-#include <linux/raid/md_u.h>
+
+#define MD_MAJOR 9
+#define SET_ARRAY_INFO 0x40480923
+#define ADD_NEW_DISK 0x40140921
+#define RUN_ARRAY 0x80080926
+#define STOP_ARRAY 0x8092
+
+#define MD_DISK_ACTIVE 2
+#define MD_DISK_SYNC 3
+
+typedef struct {
+    int minor;
+    int major;
+    int raid_disk;
+    int number;
+    int state;
+} mdu_disk_info_t;
+
+typedef struct {
+    int major_version;
+    int minor_version;
+    int patch_version;
+    unsigned long long ctime;
+    int level;
+    int size;
+    int nr_disks;
+    int raid_disks;
+    int md_minor;
+    int not_persistent;
+    int utime;
+    int state;
+    int active_disks;
+    int working_disks;
+    int failed_disks;
+    int spare_disks;
+    int layout;
+    int chunk_size;
+} mdu_array_info_t;
 
 static int wr(const char *p, const char *v, int *er)
 {
@@ -24,12 +62,12 @@ static int wr(const char *p, const char *v, int *er)
     return n < 0 ? -1 : 0;
 }
 
-static int mknod_md(int n)
+static void mkdev_md(int n)
 {
     char p[64];
     snprintf(p, sizeof(p), "/dev/md%d", n);
-    if (access(p, F_OK) == 0) return 0;
-    return mknod(p, S_IFBLK | 0600, makedev(9, n));
+    if (access(p, F_OK) == 0) return;
+    mknod(p, S_IFBLK | 0600, makedev(MD_MAJOR, n));
 }
 
 struct spray_arg { int qid, count, size; volatile int *go, *done; };
@@ -58,17 +96,17 @@ static void *spray_thread(void *a)
 
 int main(int argc, char **argv)
 {
-    int rounds = argc > 1 ? atoi(argv[1]) : 30;
+    int rounds = argc > 1 ? atoi(argv[1]) : 40;
     int sz = argc > 2 ? atoi(argv[2]) : 960;
 
     printf("V9 uid=%d rounds=%d msgsz=%d\n", getuid(), rounds, sz);
     fflush(stdout);
 
-    mknod_md(0);
-    mknod_md(1);
+    mkdev_md(0);
+    mkdev_md(1);
 
     int qid = msgget(IPC_PRIVATE, 0600 | IPC_CREAT);
-    if (qid < 0) return 1;
+    if (qid < 0) { printf("msgget %d\n", errno); return 1; }
     volatile int go = 0, done = 0;
     struct spray_arg sa = { qid, 3000, sz, &go, &done };
     pthread_t th;
@@ -78,14 +116,11 @@ int main(int argc, char **argv)
 
     for (int i = 0; i < rounds; i++) {
         int n = i & 1;
-        char dev[32];
+        char dev[32], p[128];
         snprintf(dev, sizeof(dev), "/dev/md%d", n);
 
         int fd = open(dev, O_RDWR | O_EXCL);
-        if (fd < 0) {
-            printf("r=%d open e=%d\n", i, errno);
-            continue;
-        }
+        if (fd < 0) { printf("r=%d open e=%d\n", i, errno); continue; }
 
         mdu_array_info_t ai;
         memset(&ai, 0, sizeof(ai));
@@ -95,9 +130,7 @@ int main(int argc, char **argv)
         ai.raid_disks = 1;
         ai.md_minor = n;
         ai.not_persistent = 1;
-        if (ioctl(fd, SET_ARRAY_INFO, &ai) < 0) {
-            if (i < 2) printf("r=%d SETINFO e=%d\n", i, errno);
-        }
+        int r1 = ioctl(fd, SET_ARRAY_INFO, &ai);
 
         mdu_disk_info_t di;
         memset(&di, 0, sizeof(di));
@@ -106,20 +139,15 @@ int main(int argc, char **argv)
         di.minor = 0;
         di.raid_disk = 0;
         di.state = (1 << MD_DISK_ACTIVE) | (1 << MD_DISK_SYNC);
-        if (ioctl(fd, ADD_NEW_DISK, &di) < 0) {
-            if (i < 2) printf("r=%d ADDISK e=%d\n", i, errno);
-        }
+        int r2 = ioctl(fd, ADD_NEW_DISK, &di);
 
-        if (ioctl(fd, RUN_ARRAY, 0) < 0) {
-            if (i < 2) printf("r=%d RUN e=%d\n", i, errno);
-        } else {
-            ok_run++;
-        }
+        int r3 = ioctl(fd, RUN_ARRAY, 0);
+        if (r3 == 0) ok_run++;
+        else if (i < 2) printf("r=%d SETINFO=%d ADD=%d RUN=%d e=%d\n", i, r1, r2, r3, errno);
 
         done = 0;
         go = 1;
 
-        char p[128];
         snprintf(p, sizeof(p), "/sys/block/md%d/md/array_state", n);
         int e = 0;
         if (wr(p, "clear", &e) == 0) ok_clr++;
@@ -133,7 +161,7 @@ int main(int argc, char **argv)
 
         close(fd);
 
-        if ((i % 5) == 0) {
+        if ((i % 10) == 0) {
             printf("r=%d run=%d clr=%d\n", i, ok_run, ok_clr);
             fflush(stdout);
         }
