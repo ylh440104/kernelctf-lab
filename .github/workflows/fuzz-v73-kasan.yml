@@ -42,8 +42,10 @@ jobs:
         run: |
           git clone --depth 1 https://github.com/google/syzkaller.git
           cd syzkaller
-          make -j$(nproc) TARGETOS=linux TARGETARCH=amd64
-          ls -lh bin/linux_amd64/syz-manager bin/linux_amd64/syz-executor
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -12
+          echo '=== built binaries ==='
+          ls -lh bin/syz-manager bin/syz-execprog bin/syz-sysgen 2>/dev/null
+          ls -lh bin/linux_amd64/syz-executor
 
       - name: enable kvm
         run: |
@@ -120,7 +122,7 @@ jobs:
         run: |
           cd work
           DUR=${{ github.event.inputs.duration }}
-          "$GITHUB_WORKSPACE/syzkaller/bin/linux_amd64/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
+          "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
           MPID=$!
           echo "manager pid=$MPID"
           sleep 60
