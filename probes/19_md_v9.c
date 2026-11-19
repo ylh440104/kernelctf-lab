@@ -128,8 +128,8 @@ int main(int argc, char **argv)
         memset(&ai, 0, sizeof(ai));
         ai.level = 1;
         ai.size = 2048;
-        ai.nr_disks = 1;
-        ai.raid_disks = 1;
+        ai.nr_disks = 0;
+        ai.raid_disks = 0;
         ai.md_minor = n;
         ai.not_persistent = 1;
         int r1 = ioctl(fd, SET_ARRAY_INFO, &ai);
