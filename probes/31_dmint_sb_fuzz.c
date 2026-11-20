@@ -163,6 +163,25 @@ static int run_one(int idx, const char *tag, unsigned long long len,
 	g_sb_off = start * 512;
 
 	dm_ctl(DM_DEV_REMOVE);
+
+	{
+		int fd = open(BACKDEV, O_RDWR);
+		char z[4096];
+		int i;
+		if (fd < 0) {
+			printf("  reopen %s failed errno=%d\n", BACKDEV, errno);
+			fflush(stdout);
+			return -1;
+		}
+		memset(z, 0, sizeof(z));
+		if (lseek(fd, 0, SEEK_SET) == 0)
+			for (i = 0; i < 512; i++)
+				if (write(fd, z, sizeof(z)) < 0)
+					break;
+		fsync(fd);
+		close(fd);
+	}
+
 	dm_ctl(DM_DEV_CREATE);
 
 	rc = dm_load(len, spec);
