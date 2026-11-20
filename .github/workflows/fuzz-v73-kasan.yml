@@ -14,6 +14,10 @@ on:
         description: 'shard index'
         required: true
         default: '0'
+      workdir_run_id:
+        description: 'run id of workdir artifact to resume from (0 = cold start)'
+        required: true
+        default: '0'
       duration:
         description: 'fuzz minutes'
         required: true
@@ -63,6 +67,16 @@ jobs:
           name: kernel-v73-kasan
           path: work/kernel
           run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: resume workdir
+        if: ${{ github.event.inputs.workdir_run_id != '0' }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: workdir-v73-shard${{ github.event.inputs.shard }}
+          path: work/syz-workdir
+          run-id: ${{ github.event.inputs.workdir_run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: verify kernel
@@ -121,6 +135,7 @@ jobs:
           CFG
           cat work/config.cfg
           mkdir -p work/syz-workdir
+          if [ -d work/syz-workdir/corpus ]; then echo "corpus exists: $(ls work/syz-workdir/corpus | wc -l) files"; else echo 'cold start, no corpus'; fi
 
       - name: run syz-manager
         run: |
