@@ -1,0 +1,72 @@
+dm_integrity_resume() re-reads the superblock from the underlying device
+so that it picks up the flags and the recalculation position.  The
+constructor refuses a superblock that carries SB_FLAG_RECALCULATING when
+no internal hash is configured, because recalculation needs
+ic->recalc_work and ic->recalc_wq is only allocated when
+ic->internal_hash is set:
+
+	} else {
+		if (ic->sb->flags & cpu_to_le32(SB_FLAG_RECALCULATING)) {
+			ti->error = "Recalculate can only be specified with internal_hash";
+			r = -EINVAL;
+			goto bad;
+		}
+	}
+
+The superblock that is read back on resume is not subject to that check.
+superblock_changed() only compares magic, log2_interleave_sectors,
+integrity_tag_size, journal_sections, log2_sectors_per_block, the salt
+and the SB_FLAG_HAVE_JOURNAL_MAC, SB_FLAG_FIXED_PADDING,
+SB_FLAG_FIXED_HMAC and SB_FLAG_INLINE flags, so SB_FLAG_RECALCULATING
+can be added to the on-disk superblock while the device is suspended.
+Resume then reaches
+
+	if (ic->sb->flags & cpu_to_le32(SB_FLAG_RECALCULATING)) {
+		__u64 recalc_pos = le64_to_cpu(ic->sb->recalc_sector);
+
+		if (recalc_pos < ic->provided_data_sectors) {
+			queue_work(ic->recalc_wq, &ic->recalc_work);
+
+with ic->recalc_wq == NULL and dereferences a null pointer.
+
+When the recalculation support was introduced, the call was guarded:
+
+	if (ic->recalc_wq && ic->sb->flags & cpu_to_le32(SB_FLAG_RECALCULATING))
+
+commit 468dfca38b1a ("dm integrity: add a bitmap mode") dropped the
+ic->recalc_wq part of the condition while restructuring the surrounding
+code, so the null dereference has been reachable since that commit.
+
+commit 875a7161fe15 ("dm-integrity: don't recalculate with HMAC because
+of a dirty bitmap") re-applied the constructor's policy inside the
+SB_FLAG_DIRTY_BITMAP branch, which avoids the null dereference for a
+superblock that gets SB_FLAG_RECALCULATING set by resume itself, but the
+standalone SB_FLAG_RECALCULATING branch further down in the same function
+still queues the work unconditionally.
+
+Check ic->recalc_wq before queueing the work.  If recalculation is
+requested but no internal hash is configured, report the inconsistent
+superblock and leave the device alone instead of panicking.
+
+Reproduced on 7.3.0 by loading a dm-integrity target in J mode without
+internal_hash, suspending it, writing SB_FLAG_RECALCULATING with
+recalc_sector = 0 into the on-disk superblock of the backing device, and
+resuming:
+
+	Oops: general protection fault, probably for non-canonical address 0xdffffc0000000020
+	KASAN: null-ptr-deref in range [0x0000000000000100-0x0000000000000107]
+	RIP: 0010:__queue_work+0x95/0x1030
+	Call Trace:
+	 queue_work_on
+	 dm_integrity_resume
+	 dm_table_resume_targets
+	 __dm_resume
+	 dm_resume
+	 dev_suspend
+	 ctl_ioctl
+	Kernel panic - not syncing: Fatal exception
+
+Fixes: 468dfca38b1a ("dm integrity: add a bitmap mode")
+Cc: stable@vger.kernel.org
+Reported-by: Yang Luohan <ylh440104@gmail.com>
+Signed-off-by: Yang Luohan <ylh440104@gmail.com>
