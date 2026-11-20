@@ -1,0 +1,102 @@
+name: probe-v73
+
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_run_id:
+        required: true
+        default: '44524937735'
+      probe_file:
+        required: true
+        default: 'probes/29_dmint_recalc_gap.c'
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs debootstrap gcc
+
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+
+      - name: download kernel
+        uses: actions/download-artifact@v4
+        with:
+          name: kernel-v73-kasan
+          path: work/kernel
+          run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: verify kernel
+        run: |
+          find work/kernel -maxdepth 2 -type f | head -10
+          ls -la work/kernel/
+          file work/kernel/bzImage
+          nm work/kernel/vmlinux 2>/dev/null | grep -c '__asan_load' || true
+
+      - name: compile probe
+        run: |
+          mkdir -p work/bin
+          gcc -O1 -static -o work/bin/probe "${{ github.event.inputs.probe_file }}"
+          ls -lh work/bin/probe
+
+      - name: make rootfs with autorun probe
+        run: |
+          mkdir -p work/img
+          curl -sL --max-time 60 https://raw.githubusercontent.com/google/syzkaller/master/tools/create-image.sh -o /tmp/create-image.sh
+          chmod +x /tmp/create-image.sh
+          cd work/img
+          sudo env ADD_PACKAGE="openssh-server,iproute2,net-tools,isc-dhcp-client,ifupdown,procps,util-linux" bash /tmp/create-image.sh -d trixie 2>&1 | tail -3
+          sudo chown -R "$(id -u):$(id -g)" trixie.img trixie.id_rsa
+          sudo mkdir -p /tmp/mnt && sudo mount -o loop trixie.img /tmp/mnt
+          sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
+          sudo ln -sf /lib/systemd/system/networking.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/networking.service
+          sudo cp "$GITHUB_WORKSPACE/work/bin/probe" /tmp/mnt/root/probe
+          sudo chmod 755 /tmp/mnt/root/probe
+          printf '%s\n' '#!/bin/sh' 'exec >> /root/result.txt 2>&1' 'echo "===== ENV ====="' 'for i in 0 1 2 3; do [ -e /dev/ram$i ] || mknod /dev/ram$i b 1 $i; done' 'ls -l /dev/ram0 /dev/ram1 2>&1' 'grep -E "^ram" /proc/devices' 'lsmod | head -5' 'modprobe dm_integrity 2>&1 || true' 'mkdir -p /dev/mapper' '[ -e /dev/mapper/control ] || mknod /dev/mapper/control c 10 236' 'ls -l /dev/mapper/control 2>&1' 'echo "===== RUN ====="' '/root/probe' 'echo "===== DMESG ====="' 'dmesg | grep -iE "integrity|device-mapper|general protection|KASAN|BUG|WARNING" | tail -30' 'echo "===== DONE ====="' | sudo tee /tmp/mnt/root/autorun.sh > /dev/null
+          sudo chmod 755 /tmp/mnt/root/autorun.sh
+          printf '%s\n' '[Unit]' 'Description=autorun probe' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/root/autorun.sh' 'StandardOutput=null' 'StandardError=null' 'TTYPath=/dev/ttyS0' 'StandardInput=null' 'Restart=no' '[Install]' 'WantedBy=multi-user.target' | sudo tee /tmp/mnt/etc/systemd/system/autorun.service > /dev/null
+          sudo ln -sf /etc/systemd/system/autorun.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/autorun.service
+          sudo umount /tmp/mnt
+          ls -lh trixie.img
+
+      - name: boot then read result from image
+        run: |
+          set +e
+          K=$(find work/kernel -name 'bzImage' | head -1)
+          echo "KERNEL=$K"
+          IMG="$GITHUB_WORKSPACE/work/img/trixie.img"
+          for ATTEMPT in 1 2 3; do
+            echo "=== boot attempt $ATTEMPT ==="
+            timeout 300 qemu-system-x86_64 -enable-kvm -cpu host -m 3072 -smp 2 -kernel "$K" -drive "file=$IMG,format=raw,if=virtio" -append "root=/dev/vda console=ttyS0 oops=panic panic=1 net.ifnames=0" -netdev user,id=n0 -device virtio-net-pci,netdev=n0 -nographic -no-reboot > serial.log 2>&1 || true
+            if grep -q "POC DONE\|RUN =====" serial.log 2>/dev/null; then echo "boot ok on attempt $ATTEMPT"; break; fi
+            echo "serial=$(wc -c < serial.log) retry..."
+          done
+          echo "=== serial size: $(wc -c < serial.log) ==="
+          sync
+          sudo mkdir -p /tmp/rmnt
+          sudo mount -o loop "$IMG" /tmp/rmnt 2>&1 | head -3 || true
+          sudo cat /tmp/rmnt/root/result.txt > result.txt 2>/dev/null || echo NO_RESULT_FILE
+          sudo umount /tmp/rmnt 2>/dev/null || true
+          echo "=== RESULT ==="
+          cat result.txt 2>/dev/null
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: probe-v73-output
+          path: |
+            serial.log
+            result.txt
+          if-no-files-found: warn
+          retention-days: 30
