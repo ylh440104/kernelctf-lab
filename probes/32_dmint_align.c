@@ -66,7 +66,12 @@ static int load(unsigned long long len, const char *spec)
 	p = (char *)s + sizeof(struct dm_target_spec);
 	strcpy(p, spec);
 	sl = (sizeof(struct dm_target_spec) + strlen(spec) + 1 + 7) & ~7UL;
-	return dmio(DM_TABLE_LOAD, d, sizeof(struct dm_ioctl) + sl);
+	{
+		int rr = dmio(DM_TABLE_LOAD, d, sizeof(struct dm_ioctl) + sl);
+		if (rr)
+			printf("  load err=%d ti_error="%s"\n", rr, d->error);
+		return rr;
+	}
 }
 
 static int susp(int on)
@@ -128,7 +133,7 @@ int main(void)
 	g_off = 8 * 512;
 
 	printf("\n[A] mode B, mutate provided_data_sectors to 9\n");
-	if (setup(256, "/dev/ram1 8 4 B 2 block_size:4096 journal_sectors:8") == 0) {
+	if (setup(256, "/dev/ram1 8 4 B 3 block_size:4096 sectors_per_bit:8 bitmap_flush_interval:100") == 0) {
 		susp(1);
 		if (sbio(buf, 0) == 0 && memcmp(sb->magic, "integrt", 7) == 0) {
 			printf("  before: pds=%llu log2spb=%u lbpbb=%u flags=0x%x\n",
@@ -144,7 +149,7 @@ int main(void)
 	}
 
 	printf("\n[B] mode B, clear DIRTY, set RECALC + recalc_sector=9\n");
-	if (setup(256, "/dev/ram1 8 4 B 2 block_size:4096 journal_sectors:8") == 0) {
+	if (setup(256, "/dev/ram1 8 4 B 3 block_size:4096 sectors_per_bit:8 bitmap_flush_interval:100") == 0) {
 		susp(1);
 		if (sbio(buf, 0) == 0 && memcmp(sb->magic, "integrt", 7) == 0) {
 			printf("  before: pds=%llu lbpbb=%u flags=0x%x\n",
