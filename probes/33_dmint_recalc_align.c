@@ -134,7 +134,7 @@ int main(void)
 	g_off = 8 * 512;
 
 	printf("\n[A] mode B + internal_hash, clear DIRTY, set RECALC, recalc_sector=9\n");
-	if (setup(256, "/dev/ram1 8 - B 3 block_size:4096 sectors_per_bit:8 bitmap_flush_interval:100 internal_hash:sha256") == 0) {
+	if (setup(256, "/dev/ram1 8 32 B 3 block_size:4096 sectors_per_bit:8 bitmap_flush_interval:100") == 0) {
 		susp(1);
 		if (sbio(buf, 0) == 0 && memcmp(sb->magic, "integrt", 7) == 0) {
 			printf("  before: pds=%llu log2spb=%u lbpbb=%u flags=0x%x recalc=%llu\n",
@@ -153,7 +153,7 @@ int main(void)
 	}
 
 	printf("\n[B] mode B + internal_hash, keep DIRTY, recalc_sector=9\n");
-	if (setup(256, "/dev/ram1 8 - B 3 block_size:4096 sectors_per_bit:8 bitmap_flush_interval:100 internal_hash:sha256") == 0) {
+	if (setup(256, "/dev/ram1 8 32 B 3 block_size:4096 sectors_per_bit:8 bitmap_flush_interval:100") == 0) {
 		susp(1);
 		if (sbio(buf, 0) == 0 && memcmp(sb->magic, "integrt", 7) == 0) {
 			printf("  before: flags=0x%x recalc=%llu\n", sb->flags, sb->recalc_sector);
@@ -168,7 +168,7 @@ int main(void)
 	}
 
 	printf("\n[C] mode B + internal_hash, recalc_sector=5\n");
-	if (setup(256, "/dev/ram1 8 - B 3 block_size:4096 sectors_per_bit:8 bitmap_flush_interval:100 internal_hash:sha256") == 0) {
+	if (setup(256, "/dev/ram1 8 32 B 3 block_size:4096 sectors_per_bit:8 bitmap_flush_interval:100") == 0) {
 		susp(1);
 		if (sbio(buf, 0) == 0 && memcmp(sb->magic, "integrt", 7) == 0) {
 			sb->flags &= ~SB_FLAG_DIRTY_BITMAP;
