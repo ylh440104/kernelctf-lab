@@ -69,7 +69,7 @@ static int load(unsigned long long len, const char *spec)
 	{
 		int rr = dmio(DM_TABLE_LOAD, d, sizeof(struct dm_ioctl) + sl);
 		if (rr)
-			printf("  load err=%d ti_error="%s"\n", rr, d->error);
+			printf("  load err=%d (see dmesg device-mapper)\n", rr);
 		return rr;
 	}
 }
