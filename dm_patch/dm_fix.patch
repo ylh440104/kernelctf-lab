@@ -1,14 +1,17 @@
 --- a/drivers/md/dm-integrity.c
 +++ b/drivers/md/dm-integrity.c
-@@ -4046,6 +4046,11 @@ static void dm_integrity_resume(struct dm_target *ti)
- 	if (ic->sb->flags & cpu_to_le32(SB_FLAG_RECALCULATING)) {
- 		__u64 recalc_pos = le64_to_cpu(ic->sb->recalc_sector);
+@@ -3941,6 +3941,14 @@ static void dm_integrity_resume(struct dm_target *ti)
+ 		goto skip_writes;
+ 	}
  
-+		if (unlikely(!ic->recalc_wq)) {
-+			DMERR("Recalculate requested, but internal_hash is not used");
-+			dm_integrity_io_error(ic, "inconsistent superblock", -EINVAL);
-+			goto skip_writes;
-+		}
- 		DEBUG_print("recalc pos: %llx / %llx\n", recalc_pos, ic->provided_data_sectors);
- 		if (recalc_pos < ic->provided_data_sectors) {
- 			queue_work(ic->recalc_wq, &ic->recalc_work);
++	if (unlikely(!ic->recalc_wq &&
++		     (ic->sb->flags & cpu_to_le32(SB_FLAG_RECALCULATING)))) {
++		memcpy(ic->sb, ic->sb_copy, sizeof(struct superblock));
++		DMERR("Recalculate requested, but internal_hash is not used");
++		dm_integrity_io_error(ic, "inconsistent superblock", -EINVAL);
++		goto skip_writes;
++	}
++
+ 	if (ic->mode == 'R')
+ 		goto skip_writes;
+ 
