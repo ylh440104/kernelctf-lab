@@ -82,28 +82,14 @@ Cc: stable@vger.kernel.org
 Reported-by: Yang Luohan <ylh440104@gmail.com>
 Signed-off-by: Yang Luohan <ylh440104@gmail.com>
 ---
-Changed in v2:
-- reject the superblock right after it is read, next to
-  superblock_changed(), and restore ic->sb from ic->sb_copy, instead of
-  only checking ic->recalc_wq where the work is queued
+Changes in v3:
+- the v1 patch checked ic->recalc_wq where the work is queued, which is
+  too late: the journal has been replayed and the superblock may have
+  been written already.  Move the rejection right after the superblock
+  is read, next to superblock_changed(), and restore ic->sb from
+  ic->sb_copy.
+- the v2 mail carried the diff twice by mistake, so the same hunk showed
+  up twice.  This version sends it once.
 
 drivers/md/dm-integrity.c | 8 ++++++++
  1 file changed, 8 insertions(+)
-
---- a/drivers/md/dm-integrity.c
-+++ b/drivers/md/dm-integrity.c
-@@ -3941,6 +3941,14 @@ static void dm_integrity_resume(struct dm_target *ti)
- 		goto skip_writes;
- 	}
- 
-+	if (unlikely(!ic->recalc_wq &&
-+		     (ic->sb->flags & cpu_to_le32(SB_FLAG_RECALCULATING)))) {
-+		memcpy(ic->sb, ic->sb_copy, sizeof(struct superblock));
-+		DMERR("Recalculate requested, but internal_hash is not used");
-+		dm_integrity_io_error(ic, "inconsistent superblock", -EINVAL);
-+		goto skip_writes;
-+	}
-+
- 	if (ic->mode == 'R')
- 		goto skip_writes;
- 
