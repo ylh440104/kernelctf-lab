@@ -7,6 +7,10 @@ on:
         description: 'true = do not send'
         required: true
         default: 'true'
+      version:
+        description: 'patch version suffix, e.g. v2 (empty for v1)'
+        required: false
+        default: 'v2'
 
 jobs:
   send:
@@ -20,6 +24,7 @@ jobs:
           GMAIL_USER: ylh440104@gmail.com
           GMAIL_PASS: ${{ secrets.GMAIL_APP_PASS }}
           DRY_RUN: ${{ github.event.inputs.dry_run }}
+          VER: ${{ github.event.inputs.version }}
         run: |
           python3 - << 'PYEOF'
           import os, smtplib, ssl
@@ -29,13 +34,15 @@ jobs:
           USER = os.environ['GMAIL_USER']
           PASS = os.environ['GMAIL_PASS']
           DRY = os.environ['DRY_RUN'].lower() == 'true'
+          VER = (os.environ.get('VER') or '').strip()
 
+          tag = ('[PATCH %s]' % VER) if VER else '[PATCH]'
           subj = 'dm-integrity: reject recalculation when recalc_wq was never allocated'
           body = open('dm_patch/dm_body.txt', encoding='utf-8').read()
           diff = open('dm_patch/dm_fix.patch', encoding='utf-8').read()
 
           msg = EmailMessage()
-          msg['Subject'] = '[PATCH] ' + subj
+          msg['Subject'] = tag + ' ' + subj
           msg['From'] = 'Yang Luohan <%s>' % USER
           msg['To'] = 'Mikulas Patocka <mpatocka@redhat.com>'
           msg['Cc'] = ('dm-devel@lists.linux.dev, linux-kernel@vger.kernel.org, '
@@ -51,9 +58,9 @@ jobs:
           print('Subject:', msg['Subject'])
           print('Size   :', len(str(msg)))
           print('--- body head ---')
-          print(body[:300])
-          print('--- diff head ---')
-          print(diff[:400])
+          print(body[:400])
+          print('--- body tail ---')
+          print(body[-700:])
 
           if DRY:
               print('DRY RUN, not sending')
