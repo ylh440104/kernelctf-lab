@@ -44,9 +44,20 @@ superblock that gets SB_FLAG_RECALCULATING set by resume itself, but the
 standalone SB_FLAG_RECALCULATING branch further down in the same function
 still queues the work unconditionally.
 
-Check ic->recalc_wq before queueing the work.  If recalculation is
-requested but no internal hash is configured, report the inconsistent
-superblock and leave the device alone instead of panicking.
+Reject the superblock next to superblock_changed() instead, before the
+journal is replayed and before any superblock write, and restore the copy
+that the constructor validated.  Checking it at the point where the work
+is queued would leave SB_FLAG_RECALCULATING in the in-memory superblock,
+so dm_integrity_status() would report recalculation as enabled on a
+device that has no internal hash, and a later resume would take the
+stale flag from ic->sb and write it back to the device.
+
+No path inside dm_integrity_resume() sets SB_FLAG_RECALCULATING without
+an internal hash: the bitmap mode branch requires internal_hash in the
+constructor, dm_integrity_may_recalc_dirty_bitmap() rejects it, and
+reset_recalculate is rejected by the constructor as well.  The flag can
+therefore only arrive from the device, and rejecting it after the read
+is enough to keep the work queue call safe.
 
 Reproduced on 7.3.0 by loading a dm-integrity target in J mode without
 internal_hash, suspending it, writing SB_FLAG_RECALCULATING with
@@ -70,3 +81,29 @@ Fixes: 468dfca38b1a ("dm integrity: add a bitmap mode")
 Cc: stable@vger.kernel.org
 Reported-by: Yang Luohan <ylh440104@gmail.com>
 Signed-off-by: Yang Luohan <ylh440104@gmail.com>
+---
+Changed in v2:
+- reject the superblock right after it is read, next to
+  superblock_changed(), and restore ic->sb from ic->sb_copy, instead of
+  only checking ic->recalc_wq where the work is queued
+
+drivers/md/dm-integrity.c | 8 ++++++++
+ 1 file changed, 8 insertions(+)
+
+--- a/drivers/md/dm-integrity.c
++++ b/drivers/md/dm-integrity.c
+@@ -3941,6 +3941,14 @@ static void dm_integrity_resume(struct dm_target *ti)
+ 		goto skip_writes;
+ 	}
+ 
++	if (unlikely(!ic->recalc_wq &&
++		     (ic->sb->flags & cpu_to_le32(SB_FLAG_RECALCULATING)))) {
++		memcpy(ic->sb, ic->sb_copy, sizeof(struct superblock));
++		DMERR("Recalculate requested, but internal_hash is not used");
++		dm_integrity_io_error(ic, "inconsistent superblock", -EINVAL);
++		goto skip_writes;
++	}
++
+ 	if (ic->mode == 'R')
+ 		goto skip_writes;
+ 
