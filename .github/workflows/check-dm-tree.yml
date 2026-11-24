@@ -1,0 +1,30 @@
+name: check-dm-tree
+
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: clone linux-dm and search
+        run: |
+          set -x
+          git clone --depth 400 --no-tags --branch for-next \
+            https://git.kernel.org/pub/scm/linux/kernel/git/device-mapper/linux-dm.git ldm || \
+          git clone --depth 400 --no-tags \
+            https://git.kernel.org/pub/scm/linux/kernel/git/device-mapper/linux-dm.git ldm
+          cd ldm || exit 1
+          echo "=== HEAD ==="
+          git log -1 --format='%H %ci %s'
+          echo "=== branches containing HEAD ==="
+          git branch -a
+          echo "=== search recalc_wq / recalculation ==="
+          git log --all --oneline --grep='recalc' -i | head -30
+          echo "=== search by author ==="
+          git log --all --oneline --author='Yang Luohan' | head -30
+          echo "=== grep source for our marker ==="
+          git grep -n 'Recalculate requested, but internal_hash is not used' $(git rev-list --all | head -5) -- drivers/md/dm-integrity.c 2>/dev/null | head
+          echo "=== dm-integrity commits last 30 ==="
+          git log --all --oneline -- drivers/md/dm-integrity.c | head -30
