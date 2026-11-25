@@ -39,7 +39,7 @@ jobs:
           find work/kernel -maxdepth 2 -type f | head -10
           file work/kernel/bzImage
           nm work/kernel/vmlinux 2>/dev/null | grep -c '__asan_load' || true
-          echo '=== futex private hash present in this kernel? ==='
+          echo '=== futex private hash symbols ==='
           nm work/kernel/vmlinux 2>/dev/null | grep -c 'futex_hash_allocate' || true
           nm work/kernel/vmlinux 2>/dev/null | grep -c 'futex_pivot_pending' || true
       - name: compile probe
@@ -47,7 +47,7 @@ jobs:
           mkdir -p work/bin
           gcc -O1 -static -pthread -o work/bin/probe probes/34_futex_phash_stress.c
           ls -lh work/bin/probe
-      - name: make rootfs with autorun
+      - name: prepare image
         run: |
           mkdir -p work/img
           curl -sL --max-time 60 https://raw.githubusercontent.com/google/syzkaller/master/tools/create-image.sh -o /tmp/create-image.sh
@@ -55,60 +55,49 @@ jobs:
           cd work/img
           sudo env ADD_PACKAGE="openssh-server,iproute2,net-tools,isc-dhcp-client,ifupdown,procps,util-linux" bash /tmp/create-image.sh -d trixie 2>&1 | tail -3
           sudo chown -R "$(id -u):$(id -g)" trixie.img trixie.id_rsa
-          sudo mkdir -p /tmp/mnt && sudo mount -o loop trixie.img /tmp/mnt
+          cp "$GITHUB_WORKSPACE/work/bin/probe" ./probe
+          cp "$GITHUB_WORKSPACE/probes/futex_autorun.sh.in" ./autorun.sh.in
+          ls -lh
+      - name: install probe into image
+        run: |
+          cd work/img
+          D="${{ github.event.inputs.duration }}"
+          I="${{ github.event.inputs.instances }}"
+          sed -e "s/@INSTANCES@/$I/g" -e "s/@DURATION@/$D/g" autorun.sh.in > autorun.sh
+          chmod 755 autorun.sh
+          sudo mkdir -p /tmp/mnt
+          sudo mount -o loop trixie.img /tmp/mnt
+          sudo cp probe /tmp/mnt/root/probe
+          sudo cp autorun.sh /tmp/mnt/root/autorun.sh
+          sudo chmod 755 /tmp/mnt/root/probe /tmp/mnt/root/autorun.sh
           sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
           sudo ln -sf /lib/systemd/system/networking.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/networking.service
-          sudo cp "$GITHUB_WORKSPACE/work/bin/probe" /tmp/mnt/root/probe
-          sudo chmod 755 /tmp/mnt/root/probe
-          cat > /tmp/autorun.sh << 'ARUN'
-#!/bin/sh
-exec >> /root/result.txt 2>&1
-echo "===== ENV ====="
-nproc
-uname -a
-echo "=== futex hash slots before ==="
-cat /root/probe > /dev/null
-echo "===== RUN ${INSTANCES} parallel x ${DURATION}s ====="
-i=0
-while [ $i -lt ${INSTANCES} ]; do
-  /root/probe ${DURATION} &
-  i=$((i+1))
-done
-wait
-echo "===== DMESG FUTEX ====="
-dmesg | grep -iE "futex|KASAN|BUG|WARNING|general protection|refcount|use-after-free|rbtree|corrupt" | tail -80
-echo "===== KASAN SUMMARY ====="
-dmesg | grep -cE "BUG: KASAN" || true
-echo "===== DONE ====="
-ARUN
-          sed -i "s/\${INSTANCES}/${{ github.event.inputs.instances }}/g; s/\${DURATION}/${{ github.event.inputs.duration }}/g" /tmp/autorun.sh
-          sudo cp /tmp/autorun.sh /tmp/mnt/root/autorun.sh
-          sudo chmod 755 /tmp/mnt/root/autorun.sh
-          printf '%s\n' '[Unit]' 'Description=autorun probe' 'After=multi-user.target' '[Service]' 'Type=oneshot' 'ExecStart=/root/autorun.sh' 'StandardOutput=null' 'StandardError=null' 'TTYPath=/dev/ttyS0' 'StandardInput=null' 'Restart=no' '[Install]' 'WantedBy=multi-user.target' | sudo tee /tmp/mnt/etc/systemd/system/autorun.service > /dev/null
+          printf '%s\n' '[Unit]' 'Description=autorun probe' 'After=multi-user.target' '' '[Service]' 'Type=oneshot' 'ExecStart=/root/autorun.sh' 'StandardOutput=null' 'StandardError=null' 'TTYPath=/dev/ttyS0' 'StandardInput=null' 'Restart=no' '' '[Install]' 'WantedBy=multi-user.target' | sudo tee /tmp/mnt/etc/systemd/system/autorun.service > /dev/null
           sudo ln -sf /etc/systemd/system/autorun.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/autorun.service
           sudo umount /tmp/mnt
           ls -lh trixie.img
-      - name: boot then read result
+      - name: boot and collect
         run: |
           set +e
           K=$(find work/kernel -name 'bzImage' | head -1)
           IMG="$GITHUB_WORKSPACE/work/img/trixie.img"
-          BOOTS=$(( ${{ github.event.inputs.duration }} + 100 ))
-          timeout ${BOOTS} qemu-system-x86_64 -enable-kvm -cpu host -m 4096 -smp 4 \
+          SECS="${{ github.event.inputs.duration }}"
+          LIMIT=$((SECS + 150))
+          timeout ${LIMIT} qemu-system-x86_64 -enable-kvm -cpu host -m 4096 -smp 4 \
             -kernel "$K" -drive "file=$IMG,format=raw,if=virtio" \
             -append "root=/dev/vda console=ttyS0 oops=panic panic=1 net.ifnames=0" \
             -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
-            -nographic -no-reboot > serial.log 2>&1 || true
+            -nographic -no-reboot > serial.log 2>&1
           echo "=== serial size: $(wc -c < serial.log) ==="
-          echo "=== serial crash markers ==="
-          grep -icE 'BUG: KASAN|general protection|Call Trace|WARNING:' serial.log || true
+          echo "=== crash markers in serial ==="
+          grep -icE 'BUG: KASAN|general protection|use-after-free|WARNING:' serial.log
           sync
           sudo mkdir -p /tmp/rmnt
-          sudo mount -o loop "$IMG" /tmp/rmnt 2>&1 | head -3 || true
-          sudo cat /tmp/rmnt/root/result.txt > result.txt 2>/dev/null || echo NO_RESULT_FILE
-          sudo umount /tmp/rmnt 2>/dev/null || true
+          sudo mount -o loop "$IMG" /tmp/rmnt
+          sudo cp /tmp/rmnt/root/result.txt ./result.txt 2>/dev/null || echo NO_RESULT_FILE > result.txt
+          sudo umount /tmp/rmnt
           echo "=== RESULT ==="
-          cat result.txt 2>/dev/null
+          cat result.txt
       - uses: actions/upload-artifact@v4
         if: always()
         with:
