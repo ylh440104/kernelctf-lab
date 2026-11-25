@@ -1,0 +1,180 @@
+name: fuzz-72rc5
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_run_id:
+        required: true
+        default: '45553135462'
+      artifact_name:
+        required: true
+        default: 'kernel-72rc5-kasan'
+      sandbox:
+        required: true
+        default: 'none'
+      shard:
+        required: true
+        default: '0'
+      workdir_run_id:
+        required: true
+        default: '0'
+      duration:
+        required: true
+        default: '300'
+jobs:
+  fuzz:
+    runs-on: ubuntu-latest
+    timeout-minutes: 355
+    steps:
+      - uses: actions/checkout@v4
+      - name: free disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+          df -h /
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq gcc libc6-dev make git flex bison libssl-dev \
+            libelf-dev bc qemu-system-x86 qemu-utils e2fsprogs debootstrap openssh-client
+      - name: build syzkaller
+        run: |
+          git clone --depth 1 https://github.com/google/syzkaller.git
+          cd syzkaller
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -12
+          test -x bin/syz-manager || { echo 'NO syz-manager'; exit 1; }
+          test -x bin/linux_amd64/syz-executor || { echo 'NO executor'; exit 1; }
+          echo BINARIES_OK
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: download kernel
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.inputs.artifact_name }}
+          path: work/kernel
+          run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: resume workdir
+        if: ${{ github.event.inputs.workdir_run_id != '0' }}
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: workdir-72rc5-shard${{ github.event.inputs.shard }}
+          path: work/restore
+          run-id: ${{ github.event.inputs.workdir_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: verify kernel
+        run: |
+          ls -lh work/kernel/
+          chmod +x work/kernel/bzImage 2>/dev/null || true
+          file work/kernel/bzImage
+          nm work/kernel/vmlinux 2>/dev/null | grep -cE '__asan_load|kasan_report' || true
+          echo '=== futex symbols (7.2-rc5 should have all, without the fixes) ==='
+          nm work/kernel/vmlinux 2>/dev/null | grep -c 'futex_hash_allocate' || true
+          nm work/kernel/vmlinux 2>/dev/null | grep -c 'futex_fixup_robust_unlock' || true
+          nm work/kernel/vmlinux 2>/dev/null | grep -c 'futex_pivot_pending' || true
+      - name: make rootfs
+        run: |
+          mkdir -p work/img
+          cd syzkaller/tools
+          sudo env ADD_PACKAGE="isc-dhcp-client,ifupdown,iproute2,net-tools,openssh-server,curl,tar,gcc,libc6-dev,time,strace,sudo,less,psmisc" ./create-image.sh -d trixie
+          sudo chown -R "$(id -u):$(id -g)" trixie.img trixie.id_rsa
+          sudo mkdir -p /tmp/mnt
+          sudo mount -o loop trixie.img /tmp/mnt
+          sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
+          sudo ln -sf /lib/systemd/system/networking.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/networking.service
+          sudo umount /tmp/mnt
+          cp trixie.img trixie.id_rsa "$GITHUB_WORKSPACE/work/img/"
+          chmod 600 "$GITHUB_WORKSPACE/work/img/trixie.id_rsa"
+      - name: write config
+        run: |
+          WS="$GITHUB_WORKSPACE"
+          SB="${{ github.event.inputs.sandbox }}"
+          cat > work/config.cfg << CFG
+          {
+            "name": "v72rc5",
+            "target": "linux/amd64",
+            "http": "127.0.0.1:56741",
+            "workdir": "$WS/work/syz-workdir",
+            "kernel_obj": "$WS/work/kernel",
+            "image": "$WS/work/img/trixie.img",
+            "sshkey": "$WS/work/img/trixie.id_rsa",
+            "syzkaller": "$WS/syzkaller",
+            "procs": 2,
+            "type": "qemu",
+            "vm": {
+              "count": 3,
+              "kernel": "$WS/work/kernel/bzImage",
+              "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0",
+              "cpu": 2,
+              "mem": 3072,
+              "network_device": "virtio-net-pci",
+              "qemu_args": "-enable-kvm -cpu host"
+            },
+            "cover": true,
+            "sandbox": "$SB",
+            "reproduce": true
+          }
+          CFG
+          cat work/config.cfg
+          mkdir -p work/syz-workdir
+      - name: restore workdir
+        if: ${{ github.event.inputs.workdir_run_id != '0' }}
+        run: |
+          if compgen -G "work/restore/*" > /dev/null; then
+            cp -a work/restore/. work/syz-workdir/
+            echo restored: $(ls work/syz-workdir | head -5)
+          else
+            echo no workdir, cold start
+          fi
+      - name: run syz-manager
+        run: |
+          cd work
+          DUR=${{ github.event.inputs.duration }}
+          "$GITHUB_WORKSPACE/syzkaller/bin/syz-manager" -config config.cfg > syz-manager.log 2>&1 &
+          MPID=$!
+          echo "manager pid=$MPID dur=$DUR"
+          sleep 60
+          tail -25 syz-manager.log || true
+          REMAIN=$((DUR * 60))
+          while [ $REMAIN -gt 0 ]; do
+            if ! kill -0 $MPID 2>/dev/null; then echo 'manager exited early'; break; fi
+            sleep 60
+            REMAIN=$((REMAIN - 60))
+            echo "--- remaining ${REMAIN}s ---"
+            grep -E 'executed programs|crash|coverage' syz-manager.log | tail -3 || true
+          done
+          kill -INT $MPID 2>/dev/null || true
+          sleep 20
+          tail -40 syz-manager.log || true
+      - name: collect results
+        if: always()
+        run: |
+          echo '=== crashes ==='
+          ls -la work/syz-workdir/crashes/ 2>/dev/null || echo 'no crashes dir'
+          for d in work/syz-workdir/crashes/*/; do
+            [ -d "$d" ] || continue
+            echo "##### $d"
+            cat "$d/description" 2>/dev/null
+            ls "$d" 2>/dev/null
+          done
+          cp work/syz-manager.log . 2>/dev/null || true
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: workdir-72rc5-shard${{ github.event.inputs.shard }}
+          path: work/syz-workdir
+          if-no-files-found: warn
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: results-72rc5-shard${{ github.event.inputs.shard }}
+          path: |
+            syz-manager.log
+            work/config.cfg
+          if-no-files-found: warn
+          retention-days: 90
