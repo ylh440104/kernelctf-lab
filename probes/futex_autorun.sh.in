@@ -1,0 +1,17 @@
+#!/bin/sh
+exec >> /root/result.txt 2>&1
+echo "===== ENV ====="
+nproc
+uname -a
+echo "===== RUN @INSTANCES@ parallel x @DURATION@s ====="
+i=0
+while [ $i -lt @INSTANCES@ ]; do
+  /root/probe @DURATION@ &
+  i=$((i+1))
+done
+wait
+echo "===== DMESG FUTEX ====="
+dmesg | grep -iE "futex|KASAN|BUG|WARNING|general protection|refcount|use-after-free|rbtree|corrupt" | tail -120
+echo "===== KASAN COUNT ====="
+dmesg | grep -cE "BUG: KASAN" || true
+echo "===== DONE ====="
