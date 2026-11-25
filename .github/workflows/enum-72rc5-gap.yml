@@ -1,0 +1,70 @@
+name: enum-72rc5-gap
+on:
+  workflow_dispatch:
+    inputs:
+      base:
+        required: true
+        default: 'a8e429896436e8c2d288181f875f92af8204bc58'
+jobs:
+  enum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: free disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc || true
+          df -h /
+      - name: clone linux
+        run: |
+          git clone --filter=blob:none --no-checkout https://github.com/torvalds/linux.git linux
+          cd linux
+          git log -1 --format='%H %ci'
+      - name: enumerate gap commits
+        run: |
+          cd linux
+          BASE="${{ github.event.inputs.base }}"
+          OUT="$GITHUB_WORKSPACE/gap.txt"
+          : > "$OUT"
+          echo "=== BASE $BASE ===" >> "$OUT"
+          echo "=== range: $BASE..origin/master ===" >> "$OUT"
+          git rev-list "$BASE..origin/master" --count >> "$OUT"
+          echo >> "$OUT"
+          echo "########## NON-MERGE, security-keyword commits ##########" >> "$OUT"
+          git log "$BASE..origin/master" --no-merges --format='%H|%ad|%an|%s' --date=short \
+            --grep='use-after-free' --grep='out-of-bounds' --grep='out of bounds' \
+            --grep='double free' --grep='UAF' --grep='overflow' --grep='refcount' \
+            --grep='race' --grep='NULL pointer' --grep='uninitialized' --grep='memory corruption' \
+            -i >> "$OUT"
+          echo >> "$OUT"
+          echo "########## FILES TOUCHED BY THOSE COMMITS ##########" >> "$OUT"
+          git log "$BASE..origin/master" --no-merges --format='@@@%H %s' --name-only \
+            --grep='use-after-free' --grep='out-of-bounds' --grep='out of bounds' \
+            --grep='double free' --grep='UAF' --grep='overflow' --grep='refcount' \
+            --grep='race' --grep='NULL pointer' --grep='uninitialized' --grep='memory corruption' \
+            -i >> "$OUT"
+          wc -l "$OUT"
+      - name: enumerate unprivileged surfaces only
+        run: |
+          cd linux
+          BASE="${{ github.event.inputs.base }}"
+          OUT="$GITHUB_WORKSPACE/unpriv.txt"
+          : > "$OUT"
+          for p in kernel/futex kernel/signal kernel/time kernel/sched mm ipc fs net/unix net/core security/keys kernel/bpf fs/eventpoll.c fs/pipe.c fs/timerfd.c fs/signalfd.c; do
+            echo "########## $p ##########" >> "$OUT"
+            git log "$BASE..origin/master" --no-merges --format='%h %ad %s' --date=short \
+              --grep='use-after-free' --grep='out-of-bounds' --grep='out of bounds' \
+              --grep='double free' --grep='UAF' --grep='overflow' --grep='refcount' \
+              --grep='race' --grep='NULL pointer' --grep='uninitialized' \
+              -i -- "$p" >> "$OUT"
+            echo >> "$OUT"
+          done
+          wc -l "$OUT"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: gap-enum
+          path: |
+            gap.txt
+            unpriv.txt
+          if-no-files-found: warn
+          retention-days: 90
