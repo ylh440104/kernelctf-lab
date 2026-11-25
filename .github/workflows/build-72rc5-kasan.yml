@@ -1,0 +1,74 @@
+name: build-72rc5-kasan
+on:
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+          df -h /
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential flex bison libssl-dev libelf-dev \
+            libncurses-dev bc pkg-config dwarves zstd cpio kmod rsync git
+      - name: fetch linux v7.2-rc5
+        run: |
+          git init linux && cd linux
+          git remote add origin https://github.com/torvalds/linux.git
+          git fetch --depth 1 origin a8e429896436e8c2d288181f875f92af8204bc58
+          git checkout FETCH_HEAD
+          echo "HEAD=$(git rev-parse HEAD)"
+          head -5 Makefile
+      - name: base config from kernelctf hardened 7.2-rc5
+        run: |
+          cd linux
+          curl -fsSL 'https://storage.googleapis.com/kernelctf-build/releases/hardened-v1-7.2-rc5/.config' -o .config
+          wc -l .config
+          grep -E 'CONFIG_FUTEX_PRIVATE_HASH|CONFIG_FUTEX_ROBUST_UNLOCK' .config
+      - name: enable kasan kcov
+        run: |
+          cd linux
+          ./scripts/config --file .config \
+            -e KASAN -e KASAN_GENERIC -e KASAN_INLINE -e KCOV -e KCOV_ENABLE_COMPARISONS \
+            -e DEBUG_FS -e DEBUG_INFO -e DEBUG_INFO_DWARF4 \
+            -d KASAN_VMALLOC -d SLAB_VIRTUAL -d SLUB_TINY -d RANDOMIZE_BASE -d KASAN_STACK || true
+          make olddefconfig
+          echo '=== verify ==='
+          grep -E 'CONFIG_KASAN=|CONFIG_KCOV=|CONFIG_FUTEX_PRIVATE_HASH|CONFIG_SLAB_VIRTUAL|CONFIG_RANDOMIZE_BASE' .config
+      - name: build
+        run: |
+          cd linux
+          make -j$(nproc) bzImage > /tmp/build.log 2>&1 || { echo BUILD_FAIL; tail -80 /tmp/build.log; exit 1; }
+          make -j$(nproc) vmlinux > /tmp/vmlog 2>&1 || { echo VMLINUX_FAIL; tail -60 /tmp/vmlog; exit 1; }
+          ls -lh arch/x86/boot/bzImage vmlinux
+          nm vmlinux | grep -cE '__asan_load|kasan_report' || true
+          echo '=== futex private hash symbols ==='
+          nm vmlinux | grep -c 'futex_hash_allocate' || true
+      - name: package
+        run: |
+          mkdir -p dist
+          cp linux/arch/x86/boot/bzImage dist/bzImage
+          cp linux/vmlinux dist/vmlinux
+          cp linux/.config dist/.config
+          cd dist && sha256sum bzImage vmlinux .config > SHA256SUMS && cat SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kernel-72rc5-kasan
+          path: dist/*
+          if-no-files-found: warn
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs-72rc5
+          path: |
+            /tmp/build.log
+            /tmp/vmlog
+          if-no-files-found: warn
+          retention-days: 30
