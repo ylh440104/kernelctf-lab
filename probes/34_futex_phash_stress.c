@@ -9,6 +9,7 @@
 #include <sys/syscall.h>
 #include <sys/wait.h>
 #include <sys/mman.h>
+#include <signal.h>
 #include <linux/futex.h>
 #include <stdint.h>
 #include <time.h>
@@ -160,28 +161,36 @@ static void *th_churn(void *arg)
 
 static void run_children(int seconds)
 {
-	int k;
+	pid_t kids[8];
+	int k, done = 0;
 
-	for (k = 0; k < 6; k++) {
+	for (k = 0; k < 8; k++) {
 		pid_t p = fork();
 
 		if (p == 0) {
 			int i;
-			for (i = 0; i < 64; i++) {
-				prctl(PR_FUTEX_HASH, PR_FUTEX_HASH_SET_SLOTS, 16 << (i % 6), 0, 0);
+			for (i = 0; i < 2000; i++) {
+				prctl(PR_FUTEX_HASH, PR_FUTEX_HASH_SET_SLOTS, 16 << (i % 7), 0, 0);
 				futex(&fut[(i * 3 + k) % NFUT], FUTEX_WAIT_PRIVATE, 0, NULL, NULL, 0);
 				futex(&fut[(i * 3 + k) % NFUT], FUTEX_WAKE_PRIVATE, 1, NULL, NULL, 0);
+				if (stop_flag)
+					break;
 			}
 			_exit(0);
 		}
+		kids[done++] = p;
 	}
 
-	(void)seconds;
-	while (!stop_flag)
-		usleep(20000);
+	for (k = 0; k < seconds; k++) {
+		usleep(1000000);
+		if (stop_flag)
+			break;
+	}
 
-	for (k = 0; k < 6; k++)
-		waitpid(-1, NULL, WNOHANG);
+	for (k = 0; k < done; k++) {
+		kill(kids[k], SIGKILL);
+		waitpid(kids[k], NULL, 0);
+	}
 }
 
 int main(int argc, char **argv)
