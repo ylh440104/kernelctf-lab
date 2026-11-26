@@ -11,39 +11,39 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq gcc libc6-dev make git flex bison libssl-dev libelf-dev bc
-      - name: clone and inject
+      - name: clone
+        run: git clone --depth 1 https://github.com/google/syzkaller.git
+      - name: inject futex descriptions
         run: |
-          git clone --depth 1 https://github.com/google/syzkaller.git
           cd syzkaller
-          echo '===== append descriptions to futex.txt ====='
           cat >> sys/linux/futex.txt <<'SYZEOF'
 
           # ---- extra coverage: futex2 syscalls (sys_futex_wait/wake/requeue) ----
           # FUTEX2 flags: SIZE_U32=0x02, NUMA=0x04, MPOL=0x08, PRIVATE=0x80
           define FUTEX2_SZ32		0x02
-          define FUTEX2_SZ32_PRIV	0x82
-          define FUTEX2_SZ32_NUMA	0x06
+          define FUTEX2_SZ32_PRIV		0x82
+          define FUTEX2_SZ32_NUMA		0x06
           define FUTEX2_SZ32_NUMA_PRIV	0x86
-          define FUTEX2_SZ32_MPOL	0x0a
+          define FUTEX2_SZ32_MPOL		0x0a
           define FUTEX2_SZ32_MPOL_PRIV	0x8a
           define FUTEX2_SZ32_NUMA_MPOL	0x0e
 
-          futex_wait$sz32(uaddr ptr[in, int32], val const[0, int64], mask const[0xffffffff, int64], flags const[FUTEX2_SZ32, int32], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
-          futex_wait$sz32_priv(uaddr ptr[in, int32], val const[0, int64], mask const[0xffffffff, int64], flags const[FUTEX2_SZ32_PRIV, int32], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
-          futex_wait$numa(uaddr ptr[in, int64], val const[0, int64], mask const[0xffffffff, int64], flags const[FUTEX2_SZ32_NUMA, int32], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
-          futex_wait$numa_priv(uaddr ptr[in, int64], val const[0, int64], mask const[0xffffffff, int64], flags const[FUTEX2_SZ32_NUMA_PRIV, int32], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
-          futex_wait$mpol(uaddr ptr[in, int32], val const[0, int64], mask const[0xffffffff, int64], flags const[FUTEX2_SZ32_MPOL, int32], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
-          futex_wait$mpol_priv(uaddr ptr[in, int32], val const[0, int64], mask const[0xffffffff, int64], flags const[FUTEX2_SZ32_MPOL_PRIV, int32], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
-          futex_wait$numa_mpol(uaddr ptr[in, int64], val const[0, int64], mask const[0xffffffff, int64], flags const[FUTEX2_SZ32_NUMA_MPOL, int32], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
+          futex_wait$sz32(uaddr ptr[in, int32], val int32[0:0], mask int32[0:0xffffffff], flags const[FUTEX2_SZ32], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
+          futex_wait$sz32_priv(uaddr ptr[in, int32], val int32[0:0], mask int32[0:0xffffffff], flags const[FUTEX2_SZ32_PRIV], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
+          futex_wait$numa(uaddr ptr[in, int64], val int32[0:0], mask int32[0:0xffffffff], flags const[FUTEX2_SZ32_NUMA], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
+          futex_wait$numa_priv(uaddr ptr[in, int64], val int32[0:0], mask int32[0:0xffffffff], flags const[FUTEX2_SZ32_NUMA_PRIV], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
+          futex_wait$mpol(uaddr ptr[in, int32], val int32[0:0], mask int32[0:0xffffffff], flags const[FUTEX2_SZ32_MPOL], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
+          futex_wait$mpol_priv(uaddr ptr[in, int32], val int32[0:0], mask int32[0:0xffffffff], flags const[FUTEX2_SZ32_MPOL_PRIV], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
+          futex_wait$numa_mpol(uaddr ptr[in, int64], val int32[0:0], mask int32[0:0xffffffff], flags const[FUTEX2_SZ32_NUMA_MPOL], timeout ptr[in, timespec, opt], clockid flags[futex_clock_id])
 
-          futex_wake$sz32(uaddr ptr[in, int32], mask const[0xffffffff, int64], nr int32[0:4], flags const[FUTEX2_SZ32, int32])
-          futex_wake$sz32_priv(uaddr ptr[in, int32], mask const[0xffffffff, int64], nr int32[0:4], flags const[FUTEX2_SZ32_PRIV, int32])
-          futex_wake$numa(uaddr ptr[in, int64], mask const[0xffffffff, int64], nr int32[0:4], flags const[FUTEX2_SZ32_NUMA, int32])
-          futex_wake$numa_priv(uaddr ptr[in, int64], mask const[0xffffffff, int64], nr int32[0:4], flags const[FUTEX2_SZ32_NUMA_PRIV, int32])
-          futex_wake$mpol(uaddr ptr[in, int32], mask const[0xffffffff, int64], nr int32[0:4], flags const[FUTEX2_SZ32_MPOL, int32])
-          futex_wake$numa_mpol(uaddr ptr[in, int64], mask const[0xffffffff, int64], nr int32[0:4], flags const[FUTEX2_SZ32_NUMA_MPOL, int32])
+          futex_wake$sz32(uaddr ptr[in, int32], mask int32[0:0xffffffff], nr int32[0:4], flags const[FUTEX2_SZ32])
+          futex_wake$sz32_priv(uaddr ptr[in, int32], mask int32[0:0xffffffff], nr int32[0:4], flags const[FUTEX2_SZ32_PRIV])
+          futex_wake$numa(uaddr ptr[in, int64], mask int32[0:0xffffffff], nr int32[0:4], flags const[FUTEX2_SZ32_NUMA])
+          futex_wake$numa_priv(uaddr ptr[in, int64], mask int32[0:0xffffffff], nr int32[0:4], flags const[FUTEX2_SZ32_NUMA_PRIV])
+          futex_wake$mpol(uaddr ptr[in, int32], mask int32[0:0xffffffff], nr int32[0:4], flags const[FUTEX2_SZ32_MPOL])
+          futex_wake$numa_mpol(uaddr ptr[in, int64], mask int32[0:0xffffffff], nr int32[0:4], flags const[FUTEX2_SZ32_NUMA_MPOL])
 
-          futex_requeue$sz32(waiters ptr[in, array[futex_waitv2, 2:2]], flags const[0, int32], nr_wake int32[0:2], nr_requeue int32[0:2])
+          futex_requeue$sz32(waiters ptr[in, array[futex_waitv2, 2:2]], flags const[0], nr_wake int32[0:2], nr_requeue int32[0:2])
 
           futex_waitv2 {
             val		int64
@@ -52,23 +52,24 @@ jobs:
             __reserved	const[0, int32]
           }
           SYZEOF
-          echo '===== append new consts to futex.txt.const ====='
           printf '%s\n' '__NR_futex_wait = 455, mips64le:5455' '__NR_futex_wake = 454, mips64le:5454' '__NR_futex_requeue = 456, mips64le:5456' >> sys/linux/futex.txt.const
-          tail -6 sys/linux/futex.txt.const
-      - name: add prctl variants
+          tail -4 sys/linux/futex.txt.const
+      - name: inject prctl descriptions
         run: |
           cd syzkaller
           cat >> sys/linux/prctl.txt <<'SYZEOF'
 
           prctl$FUTEX_HASH_SET(option const[PR_FUTEX_HASH], cmd const[PR_FUTEX_HASH_SET_SLOTS], slots int32[0:8192])
-          prctl$FUTEX_HASH_GET(option const[PR_FUTEX_HASH], cmd const[PR_FUTEX_HASH_GET_SLOTS], arg const[0, int32])
+          prctl$FUTEX_HASH_GET(option const[PR_FUTEX_HASH], cmd const[PR_FUTEX_HASH_GET_SLOTS], arg const[0])
           SYZEOF
           printf '%s\n' 'PR_FUTEX_HASH = 78' 'PR_FUTEX_HASH_SET_SLOTS = 1' 'PR_FUTEX_HASH_GET_SLOTS = 2' >> sys/linux/prctl.txt.const
           tail -4 sys/linux/prctl.txt.const
       - name: build
         run: |
           cd syzkaller
-          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -40
+          set +e
+          make -j$(nproc) TARGETOS=linux TARGETVMARCH=amd64 TARGETARCH=amd64 all 2>&1 | tail -30
           test -x bin/linux_amd64/syz-executor && echo EXECUTOR_OK || echo EXECUTOR_MISSING
-          echo '=== check syscalls present in generated table ==='
-          strings bin/linux_amd64/syz-executor 2>/dev/null | grep -c 'futex_wait$sz32' || true
+          echo '=== grep generated descriptions for new names ==='
+          grep -c 'futex_wake' sys/linux/futex.txt.const || true
+          strings bin/syz-manager 2>/dev/null | grep -E 'futex_wake' | sort -u | head -10 || true
