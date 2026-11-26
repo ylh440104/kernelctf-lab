@@ -51,7 +51,7 @@ jobs:
           cd syzkaller
           cat >> sys/linux/prctl.txt <<'SYZEOF'
 
-          prctl$FUTEX_HASH_SET(option const[78], cmd const[1], slots int32[0:8192])
+          prctl$FUTEX_HASH_SET(option const[78], cmd const[1], slots intptr[0:8192])
           prctl$FUTEX_HASH_GET(option const[78], cmd const[2], arg const[0])
           SYZEOF
           printf '%s\n' 'PR_FUTEX_HASH = 78' 'PR_FUTEX_HASH_SET_SLOTS = 1' 'PR_FUTEX_HASH_GET_SLOTS = 2' >> sys/linux/prctl.txt.const
