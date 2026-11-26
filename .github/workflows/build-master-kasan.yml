@@ -4,7 +4,7 @@ on:
     inputs:
       ref:
         required: true
-        default: 'b6a9fa34ce41'
+        default: 'b6a9fa34ce4187cb69d3c588a4bbffc31ce5db8f'
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -24,7 +24,14 @@ jobs:
         run: |
           git init linux && cd linux
           git remote add origin https://github.com/torvalds/linux.git
-          git fetch --depth 1 origin ${{ github.event.inputs.ref }}
+          R="${{ github.event.inputs.ref }}"
+          if git fetch --depth 1 origin "$R"; then
+            echo "fetched by sha"
+          elif git fetch --depth 1 origin "refs/tags/$R"; then
+            echo "fetched by tag"
+          else
+            echo "fallback to master"; git fetch --depth 1 origin master
+          fi
           git checkout FETCH_HEAD
           echo "HEAD=$(git rev-parse HEAD)"
           head -5 Makefile
