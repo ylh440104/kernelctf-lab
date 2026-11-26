@@ -1,0 +1,279 @@
+name: futex2-stress
+on:
+  workflow_dispatch:
+    inputs:
+      kernel_run_id:
+        required: true
+        default: '45553135462'
+      artifact_name:
+        required: true
+        default: 'kernel-72rc5-kasan'
+      duration:
+        required: true
+        default: '120'
+      instances:
+        required: true
+        default: '2'
+      node:
+        required: true
+        default: '0'
+jobs:
+  stress:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq qemu-system-x86 qemu-utils e2fsprogs debootstrap gcc
+      - name: enable kvm
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+          ls -l /dev/kvm
+      - name: download kernel
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ github.event.inputs.artifact_name }}
+          path: work/kernel
+          run-id: ${{ github.event.inputs.kernel_run_id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: verify kernel
+        run: |
+          find work/kernel -maxdepth 2 -type f | head -10
+          file work/kernel/bzImage
+          nm work/kernel/vmlinux 2>/dev/null | grep -c '__asan_load' || true
+          nm work/kernel/vmlinux 2>/dev/null | grep -c 'futex_key_to_node_opt' || true
+          nm work/kernel/vmlinux 2>/dev/null | grep -c 'futex_hash_allocate' || true
+      - name: write probe
+        run: |
+          mkdir -p probes work/bin
+          base64 -d > probes/36_futex2_stress.c <<'B64EOF'
+          I2RlZmluZSBfR05VX1NPVVJDRQojaW5jbHVkZSA8c3RkaW8uaD4KI2luY2x1ZGUgPHN0ZGxpYi5o
+          PgojaW5jbHVkZSA8c3RyaW5nLmg+CiNpbmNsdWRlIDx1bmlzdGQuaD4KI2luY2x1ZGUgPGVycm5v
+          Lmg+CiNpbmNsdWRlIDxzdGRpbnQuaD4KI2luY2x1ZGUgPHB0aHJlYWQuaD4KI2luY2x1ZGUgPHN0
+          ZGF0b21pYy5oPgojaW5jbHVkZSA8dGltZS5oPgojaW5jbHVkZSA8c3lzL21tYW4uaD4KI2luY2x1
+          ZGUgPHN5cy9wcmN0bC5oPgojaW5jbHVkZSA8c3lzL3N5c2NhbGwuaD4KI2luY2x1ZGUgPHN5cy93
+          YWl0Lmg+CgojZGVmaW5lIFNZU19GVVRFWAkJMjAyCiNkZWZpbmUgU1lTX0ZVVEVYX1dBS0UyCQk0
+          NTQKI2RlZmluZSBTWVNfRlVURVhfV0FJVDIJCTQ1NQojZGVmaW5lIFNZU19GVVRFWF9SRVFVRVVF
+          Mgk0NTYKI2RlZmluZSBTWVNfRlVURVhfV0FJVFYJCTQ0OQojZGVmaW5lIFNZU19NQklORAkJMjM3
+          CiNkZWZpbmUgU1lTX1NFVF9NRU1QT0xJQ1kJMjM4CiNkZWZpbmUgU1lTX0dFVF9NRU1QT0xJQ1kJ
+          MjM5CgojZGVmaW5lIE9QX1dBSVQJCQkwCiNkZWZpbmUgT1BfV0FLRQkJCTEKI2RlZmluZSBPUF9S
+          RVFVRVVFCQkzCiNkZWZpbmUgT1BfQ01QX1JFUVVFVUUJCTQKI2RlZmluZSBPUF9MT0NLX1BJCQk2
+          CiNkZWZpbmUgT1BfVU5MT0NLX1BJCQk3CiNkZWZpbmUgT1BfVFJZTE9DS19QSQkJOAojZGVmaW5l
+          IE9QX1dBSVRfUkVRVUVVRV9QSQkxMQojZGVmaW5lIE9QX0NNUF9SRVFVRVVFX1BJCTEyCiNkZWZp
+          bmUgUFJJVgkJCTEyOAoKI2RlZmluZSBGMl9VMzIJCQkyCiNkZWZpbmUgRjJfVTMyX1BSSVYJCTEz
+          MAojZGVmaW5lIEYyX05VTUEJCQk2CiNkZWZpbmUgRjJfTlVNQV9QUklWCQkxMzQKI2RlZmluZSBG
+          Ml9NUE9MCQkJMTAKI2RlZmluZSBGMl9NUE9MX1BSSVYJCTEzOAojZGVmaW5lIEYyX05VTUFfTVBP
+          TAkJMTQKI2RlZmluZSBGMl9OVU1BX01QT0xfUFJJVgkxNDIKCiNkZWZpbmUgTVBPTF9QUkVGRVJS
+          RUQJCTAKCnN0cnVjdCBmdXRleF93YWl0djIgewoJdWludDY0X3QgdmFsOwoJdWludDY0X3QgdWFk
+          ZHI7Cgl1aW50MzJfdCBmbGFnczsKCXVpbnQzMl90IHJlc2VydmVkOwp9OwoKc3RhdGljIGludCBn
+          X3NlY3MgPSAxMjA7CnN0YXRpYyBhdG9taWNfaW50IGdfc3RvcDsKc3RhdGljIGF0b21pY19sb25n
+          IGdfb3BzOwpzdGF0aWMgYXRvbWljX2xvbmcgZ19lcnI7CnN0YXRpYyBpbnQgZ19ub2RlID0gMDsK
+          CnN0YXRpYyBsb25nIGZ1dGV4Myh2b2lkICp1LCBpbnQgb3AsIHVpbnQzMl90IHZhbCwgdm9pZCAq
+          dG8sIHZvaWQgKnUyLCB1aW50MzJfdCB2MykKewoJcmV0dXJuIHN5c2NhbGwoU1lTX0ZVVEVYLCB1
+          LCBvcCwgdmFsLCB0bywgdTIsIHYzKTsKfQoKc3RhdGljIGxvbmcgZndhaXQyKHZvaWQgKnUsIHVu
+          c2lnbmVkIGxvbmcgdmFsLCB1bnNpZ25lZCBsb25nIG1hc2ssIHVuc2lnbmVkIGZsLAoJCSAgIHN0
+          cnVjdCB0aW1lc3BlYyAqdHMsIGludCBjbGspCnsKCXJldHVybiBzeXNjYWxsKFNZU19GVVRFWF9X
+          QUlUMiwgdSwgdmFsLCBtYXNrLCBmbCwgdHMsIGNsayk7Cn0KCnN0YXRpYyBsb25nIGZ3YWtlMih2
+          b2lkICp1LCB1bnNpZ25lZCBsb25nIG1hc2ssIGludCBuciwgdW5zaWduZWQgZmwpCnsKCXJldHVy
+          biBzeXNjYWxsKFNZU19GVVRFWF9XQUtFMiwgdSwgbWFzaywgbnIsIGZsKTsKfQoKc3RhdGljIGxv
+          bmcgZnJlcTIoc3RydWN0IGZ1dGV4X3dhaXR2MiAqd3YsIHVuc2lnbmVkIGZsLCBpbnQgbncsIGlu
+          dCBucikKewoJcmV0dXJuIHN5c2NhbGwoU1lTX0ZVVEVYX1JFUVVFVUUyLCB3diwgZmwsIG53LCBu
+          cik7Cn0KCnN0YXRpYyBsb25nIGZ3YWl0dihzdHJ1Y3QgZnV0ZXhfd2FpdHYyICp3diwgdW5zaWdu
+          ZWQgbnIsIHVuc2lnbmVkIGZsLAoJCSAgIHN0cnVjdCB0aW1lc3BlYyAqdHMsIGludCBjbGspCnsK
+          CXJldHVybiBzeXNjYWxsKFNZU19GVVRFWF9XQUlUViwgd3YsIG5yLCBmbCwgdHMsIGNsayk7Cn0K
+          CnN0YXRpYyB2b2lkIHBpbl9jcHUoaW50IGMpCnsKCWNwdV9zZXRfdCBzOwoJQ1BVX1pFUk8oJnMp
+          OwoJQ1BVX1NFVChjICUgNCwgJnMpOwoJc2NoZWRfc2V0YWZmaW5pdHkoMCwgc2l6ZW9mKHMpLCAm
+          cyk7Cn0KCnN0YXRpYyB2b2lkICptYXBfcmVnaW9uKHNpemVfdCBsZW4pCnsKCXZvaWQgKnAgPSBt
+          bWFwKE5VTEwsIGxlbiwgUFJPVF9SRUFEIHwgUFJPVF9XUklURSwKCQkgICAgICAgTUFQX1BSSVZB
+          VEUgfCBNQVBfQU5PTllNT1VTLCAtMSwgMCk7CglpZiAocCA9PSBNQVBfRkFJTEVEKQoJCXJldHVy
+          biBOVUxMOwoJbWVtc2V0KHAsIDAsIGxlbik7CglyZXR1cm4gcDsKfQoKc3RhdGljIHZvaWQgYmlu
+          ZF9ub2RlKHZvaWQgKnAsIHNpemVfdCBsZW4sIGludCBub2RlKQp7Cgl1bnNpZ25lZCBsb25nIG1h
+          c2sgPSAxVUwgPDwgbm9kZTsKCXN5c2NhbGwoU1lTX01CSU5ELCBwLCBsZW4sIE1QT0xfUFJFRkVS
+          UkVELCAmbWFzaywgNjUsIDApOwp9CgpzdGF0aWMgdm9pZCAqdGhfbnVtYSh2b2lkICphcmcpCnsK
+          CXVpbnQ2NF90ICpwID0gYXJnOwoJc3RydWN0IHRpbWVzcGVjIHRzOwoJcGluX2NwdSgwKTsKCXdo
+          aWxlICghYXRvbWljX2xvYWQoJmdfc3RvcCkpIHsKCQl0cy50dl9zZWMgPSAwOwoJCXRzLnR2X25z
+          ZWMgPSA1MDAwMDsKCQlmd2FpdDIocCwgMCwgfjBVTCwgRjJfTlVNQSwgJnRzLCAxKTsKCQkqKHZv
+          bGF0aWxlIHVpbnQzMl90ICopcCA9IDA7CgkJZndha2UyKHAsIH4wVUwsIDEsIEYyX05VTUEpOwoJ
+          CSoodm9sYXRpbGUgdWludDMyX3QgKilwID0gMDsKCQlmd2FrZTIocCwgfjBVTCwgMywgRjJfTlVN
+          QV9QUklWKTsKCQlhdG9taWNfZmV0Y2hfYWRkKCZnX29wcywgMyk7Cgl9CglyZXR1cm4gTlVMTDsK
+          fQoKc3RhdGljIHZvaWQgKnRoX21wb2wodm9pZCAqYXJnKQp7Cgl1aW50NjRfdCAqcCA9IGFyZzsK
+          CXN0cnVjdCB0aW1lc3BlYyB0czsKCXBpbl9jcHUoMSk7Cgl3aGlsZSAoIWF0b21pY19sb2FkKCZn
+          X3N0b3ApKSB7CgkJdHMudHZfc2VjID0gMDsKCQl0cy50dl9uc2VjID0gNTAwMDA7CgkJZndhaXQy
+          KHAsIDAsIH4wVUwsIEYyX01QT0wsICZ0cywgMSk7CgkJKih2b2xhdGlsZSB1aW50MzJfdCAqKXAg
+          PSAwOwoJCWZ3YWtlMihwLCB+MFVMLCAxLCBGMl9NUE9MKTsKCQkqKHZvbGF0aWxlIHVpbnQzMl90
+          ICopcCA9IDA7CgkJZndha2UyKHAsIH4wVUwsIDIsIEYyX01QT0xfUFJJVik7CgkJYXRvbWljX2Zl
+          dGNoX2FkZCgmZ19vcHMsIDMpOwoJfQoJcmV0dXJuIE5VTEw7Cn0KCnN0YXRpYyB2b2lkICp0aF9u
+          dW1hbXBvbCh2b2lkICphcmcpCnsKCXVpbnQ2NF90ICpwID0gYXJnOwoJc3RydWN0IHRpbWVzcGVj
+          IHRzOwoJcGluX2NwdSgyKTsKCXdoaWxlICghYXRvbWljX2xvYWQoJmdfc3RvcCkpIHsKCQl0cy50
+          dl9zZWMgPSAwOwoJCXRzLnR2X25zZWMgPSA1MDAwMDsKCQlmd2FpdDIocCwgMCwgfjBVTCwgRjJf
+          TlVNQV9NUE9MLCAmdHMsIDEpOwoJCSoodm9sYXRpbGUgdWludDMyX3QgKilwID0gMDsKCQlmd2Fr
+          ZTIocCwgfjBVTCwgMSwgRjJfTlVNQV9NUE9MKTsKCQkqKHZvbGF0aWxlIHVpbnQzMl90ICopcCA9
+          IDA7CgkJZndha2UyKHAsIH4wVUwsIDEsIEYyX05VTUFfTVBPTF9QUklWKTsKCQlhdG9taWNfZmV0
+          Y2hfYWRkKCZnX29wcywgMyk7Cgl9CglyZXR1cm4gTlVMTDsKfQoKc3RhdGljIHZvaWQgKnRoX2hh
+          c2godm9pZCAqYXJnKQp7Cgl1bnNpZ25lZCBzbG90cyA9IDE2OwoJaW50IHVwID0gMTsKCSh2b2lk
+          KWFyZzsKCXBpbl9jcHUoMyk7Cgl3aGlsZSAoIWF0b21pY19sb2FkKCZnX3N0b3ApKSB7CgkJbG9u
+          ZyByID0gcHJjdGwoNzgsIDEsICh1bnNpZ25lZCBsb25nKXNsb3RzLCAwLCAwKTsKCQlpZiAociA8
+          IDApCgkJCWF0b21pY19mZXRjaF9hZGQoJmdfZXJyLCAxKTsKCQlwcmN0bCg3OCwgMiwgMCwgMCwg
+          MCk7CgkJaWYgKHVwKSB7CgkJCXNsb3RzIDw8PSAxOwoJCQlpZiAoc2xvdHMgPj0gNDA5NikKCQkJ
+          CXVwID0gMDsKCQl9IGVsc2UgewoJCQlzbG90cyA+Pj0gMTsKCQkJaWYgKHNsb3RzIDw9IDE2KQoJ
+          CQkJdXAgPSAxOwoJCX0KCQlhdG9taWNfZmV0Y2hfYWRkKCZnX29wcywgMik7Cgl9CglyZXR1cm4g
+          TlVMTDsKfQoKc3RhdGljIHZvaWQgKnRoX3BpKHZvaWQgKmFyZykKewoJdWludDMyX3QgKnAgPSBh
+          cmc7CglwaW5fY3B1KDApOwoJd2hpbGUgKCFhdG9taWNfbG9hZCgmZ19zdG9wKSkgewoJCWlmIChm
+          dXRleDMocCwgT1BfVFJZTE9DS19QSSB8IFBSSVYsIDAsIE5VTEwsIE5VTEwsIDApID09IDApCgkJ
+          CWZ1dGV4MyhwLCBPUF9VTkxPQ0tfUEkgfCBQUklWLCAwLCBOVUxMLCBOVUxMLCAwKTsKCQlmdXRl
+          eDMocCwgT1BfVFJZTE9DS19QSSwgMCwgTlVMTCwgTlVMTCwgMCk7CgkJZnV0ZXgzKHAsIE9QX1VO
+          TE9DS19QSSwgMCwgTlVMTCwgTlVMTCwgMCk7CgkJYXRvbWljX2ZldGNoX2FkZCgmZ19vcHMsIDQp
+          OwoJfQoJcmV0dXJuIE5VTEw7Cn0KCnN0YXRpYyB2b2lkICp0aF93YWl0dih2b2lkICphcmcpCnsK
+          CXN0cnVjdCBmdXRleF93YWl0djIgKnd2ID0gYXJnOwoJc3RydWN0IHRpbWVzcGVjIHRzOwoJcGlu
+          X2NwdSgxKTsKCXdoaWxlICghYXRvbWljX2xvYWQoJmdfc3RvcCkpIHsKCQl3dlswXS52YWwgPSAw
+          OwoJCXd2WzBdLmZsYWdzID0gRjJfTlVNQV9QUklWOwoJCXd2WzFdLnZhbCA9IDA7CgkJd3ZbMV0u
+          ZmxhZ3MgPSBGMl9VMzJfUFJJVjsKCQl0cy50dl9zZWMgPSAwOwoJCXRzLnR2X25zZWMgPSAzMDAw
+          MDsKCQlmd2FpdHYod3YsIDIsIDAsICZ0cywgMSk7CgkJKih2b2xhdGlsZSB1aW50MzJfdCAqKSh1
+          aW50cHRyX3Qpd3ZbMF0udWFkZHIgPSAwOwoJCSoodm9sYXRpbGUgdWludDMyX3QgKikodWludHB0
+          cl90KXd2WzFdLnVhZGRyID0gMDsKCQl3dlswXS5mbGFncyA9IEYyX01QT0xfUFJJVjsKCQl3dlsx
+          XS5mbGFncyA9IEYyX01QT0xfUFJJVjsKCQlmd2FpdHYod3YsIDIsIDAsICZ0cywgMSk7CgkJKih2
+          b2xhdGlsZSB1aW50MzJfdCAqKSh1aW50cHRyX3Qpd3ZbMF0udWFkZHIgPSAwOwoJCSoodm9sYXRp
+          bGUgdWludDMyX3QgKikodWludHB0cl90KXd2WzFdLnVhZGRyID0gMDsKCQlhdG9taWNfZmV0Y2hf
+          YWRkKCZnX29wcywgMik7Cgl9CglyZXR1cm4gTlVMTDsKfQoKc3RhdGljIHZvaWQgKnRoX3JlcXVl
+          dWUodm9pZCAqYXJnKQp7CglzdHJ1Y3QgZnV0ZXhfd2FpdHYyICp3diA9IGFyZzsKCXBpbl9jcHUo
+          Mik7Cgl3aGlsZSAoIWF0b21pY19sb2FkKCZnX3N0b3ApKSB7CgkJd3ZbMF0udmFsID0gMDsKCQl3
+          dlswXS5mbGFncyA9IEYyX1UzMl9QUklWOwoJCXd2WzFdLnZhbCA9IDA7CgkJd3ZbMV0uZmxhZ3Mg
+          PSBGMl9VMzJfUFJJVjsKCQlmcmVxMih3diwgMCwgMSwgMSk7CgkJKih2b2xhdGlsZSB1aW50MzJf
+          dCAqKSh1aW50cHRyX3Qpd3ZbMF0udWFkZHIgPSAwOwoJCSoodm9sYXRpbGUgdWludDMyX3QgKiko
+          dWludHB0cl90KXd2WzFdLnVhZGRyID0gMDsKCQlmdXRleDMoKHZvaWQgKikodWludHB0cl90KXd2
+          WzBdLnVhZGRyLCBPUF9DTVBfUkVRVUVVRSB8IFBSSVYsIDEsCgkJICAgICAgICh2b2lkICopMSwg
+          KHZvaWQgKikodWludHB0cl90KXd2WzFdLnVhZGRyLCAwKTsKCQlhdG9taWNfZmV0Y2hfYWRkKCZn
+          X29wcywgMik7Cgl9CglyZXR1cm4gTlVMTDsKfQoKc3RhdGljIHZvaWQgKnRoX21hcGNodXJuKHZv
+          aWQgKmFyZykKewoJKHZvaWQpYXJnOwoJcGluX2NwdSgzKTsKCXdoaWxlICghYXRvbWljX2xvYWQo
+          Jmdfc3RvcCkpIHsKCQl2b2lkICpwID0gbWFwX3JlZ2lvbigxIDw8IDIxKTsKCQlpZiAoIXApCgkJ
+          CWJyZWFrOwoJCWJpbmRfbm9kZShwLCAxIDw8IDIxLCBnX25vZGUpOwoJCW11bm1hcChwLCAxIDw8
+          IDIxKTsKCQl2b2lkICpxID0gbWFwX3JlZ2lvbigxIDw8IDIxKTsKCQlpZiAocSkgewoJCQliaW5k
+          X25vZGUocSwgMSA8PCAyMSwgZ19ub2RlKTsKCQkJbXVubWFwKHEsIDEgPDwgMjEpOwoJCX0KCQlh
+          dG9taWNfZmV0Y2hfYWRkKCZnX29wcywgMik7Cgl9CglyZXR1cm4gTlVMTDsKfQoKc3RhdGljIHZv
+          aWQgKnRoX2Zvcmsodm9pZCAqYXJnKQp7Cgkodm9pZClhcmc7CglwaW5fY3B1KDEpOwoJd2hpbGUg
+          KCFhdG9taWNfbG9hZCgmZ19zdG9wKSkgewoJCXBpZF90IGMgPSBmb3JrKCk7CgkJaWYgKGMgPT0g
+          MCkKCQkJX2V4aXQoMCk7CgkJaWYgKGMgPiAwKQoJCQl3YWl0cGlkKGMsIE5VTEwsIDApOwoJCWF0
+          b21pY19mZXRjaF9hZGQoJmdfb3BzLCAxKTsKCX0KCXJldHVybiBOVUxMOwp9CgpzdGF0aWMgdm9p
+          ZCAqdGhfbWVtcG9saWN5KHZvaWQgKmFyZykKewoJKHZvaWQpYXJnOwoJcGluX2NwdSgyKTsKCXdo
+          aWxlICghYXRvbWljX2xvYWQoJmdfc3RvcCkpIHsKCQl1bnNpZ25lZCBsb25nIG1hc2sgPSAxVUwg
+          PDwgZ19ub2RlOwoJCXN5c2NhbGwoU1lTX1NFVF9NRU1QT0xJQ1ksIE1QT0xfUFJFRkVSUkVELCAm
+          bWFzaywgNjUpOwoJCWF0b21pY19mZXRjaF9hZGQoJmdfb3BzLCAxKTsKCX0KCXJldHVybiBOVUxM
+          Owp9CgppbnQgbWFpbihpbnQgYXJnYywgY2hhciAqKmFyZ3YpCnsKCXB0aHJlYWRfdCB0aFsxMl07
+          Cgl2b2lkICpyX251bWEsICpyX21wb2wsICpyX25tcCwgKnJfcGk7CglzdHJ1Y3QgZnV0ZXhfd2Fp
+          dHYyICp3djsKCWludCBpOwoKCWlmIChhcmdjID4gMSkKCQlnX3NlY3MgPSBhdG9pKGFyZ3ZbMV0p
+          OwoJaWYgKGFyZ2MgPiAyKQoJCWdfbm9kZSA9IGF0b2koYXJndlsyXSk7CglpZiAoZ19ub2RlIDwg
+          MCB8fCBnX25vZGUgPiA2MikKCQlnX25vZGUgPSAwOwoKCXByaW50ZigicHJvYmUzNiBzdGFydCBz
+          ZWNzPSVkIG5vZGU9JWRcbiIsIGdfc2VjcywgZ19ub2RlKTsKCWZmbHVzaChzdGRvdXQpOwoKCXJf
+          bnVtYSA9IG1hcF9yZWdpb24oMSA8PCAyMSk7CglyX21wb2wgPSBtYXBfcmVnaW9uKDEgPDwgMjEp
+          OwoJcl9ubXAgPSBtYXBfcmVnaW9uKDEgPDwgMjEpOwoJcl9waSA9IG1hcF9yZWdpb24oMSA8PCAy
+          MSk7Cgl3diA9IG1hcF9yZWdpb24oMSA8PCAxNik7CglpZiAoIXJfbnVtYSB8fCAhcl9tcG9sIHx8
+          ICFyX25tcCB8fCAhcl9waSB8fCAhd3YpIHsKCQlwcmludGYoIm1tYXAgZmFpbGVkXG4iKTsKCQly
+          ZXR1cm4gMTsKCX0KCgliaW5kX25vZGUocl9udW1hLCAxIDw8IDIxLCBnX25vZGUpOwoJYmluZF9u
+          b2RlKHJfbXBvbCwgMSA8PCAyMSwgZ19ub2RlKTsKCWJpbmRfbm9kZShyX25tcCwgMSA8PCAyMSwg
+          Z19ub2RlKTsKCgl3dlswXS51YWRkciA9ICh1aW50NjRfdCkodWludHB0cl90KSgoY2hhciAqKXd2
+          ICsgMHgxMDAwKTsKCXd2WzFdLnVhZGRyID0gKHVpbnQ2NF90KSh1aW50cHRyX3QpKChjaGFyICop
+          d3YgKyAweDIwMDApOwoKCXVuc2lnbmVkIGxvbmcgbWFzayA9IDFVTCA8PCBnX25vZGU7CglzeXNj
+          YWxsKFNZU19TRVRfTUVNUE9MSUNZLCBNUE9MX1BSRUZFUlJFRCwgJm1hc2ssIDY1KTsKCglwdGhy
+          ZWFkX2NyZWF0ZSgmdGhbMF0sIE5VTEwsIHRoX251bWEsIHJfbnVtYSk7CglwdGhyZWFkX2NyZWF0
+          ZSgmdGhbMV0sIE5VTEwsIHRoX21wb2wsIHJfbXBvbCk7CglwdGhyZWFkX2NyZWF0ZSgmdGhbMl0s
+          IE5VTEwsIHRoX251bWFtcG9sLCByX25tcCk7CglwdGhyZWFkX2NyZWF0ZSgmdGhbM10sIE5VTEws
+          IHRoX2hhc2gsIE5VTEwpOwoJcHRocmVhZF9jcmVhdGUoJnRoWzRdLCBOVUxMLCB0aF9waSwgcl9w
+          aSk7CglwdGhyZWFkX2NyZWF0ZSgmdGhbNV0sIE5VTEwsIHRoX3dhaXR2LCB3dik7CglwdGhyZWFk
+          X2NyZWF0ZSgmdGhbNl0sIE5VTEwsIHRoX3JlcXVldWUsIHd2KTsKCXB0aHJlYWRfY3JlYXRlKCZ0
+          aFs3XSwgTlVMTCwgdGhfbWFwY2h1cm4sIE5VTEwpOwoJcHRocmVhZF9jcmVhdGUoJnRoWzhdLCBO
+          VUxMLCB0aF9mb3JrLCBOVUxMKTsKCXB0aHJlYWRfY3JlYXRlKCZ0aFs5XSwgTlVMTCwgdGhfbWVt
+          cG9saWN5LCBOVUxMKTsKCglmb3IgKGkgPSAwOyBpIDwgZ19zZWNzOyBpKyspCgkJc2xlZXAoMSk7
+          CgoJYXRvbWljX3N0b3JlKCZnX3N0b3AsIDEpOwoJZm9yIChpID0gMDsgaSA8IDEwOyBpKyspCgkJ
+          cHRocmVhZF9qb2luKHRoW2ldLCBOVUxMKTsKCglwcmludGYoInByb2JlMzYgZG9uZSBvcHM9JWxk
+          IGVycj0lbGRcbiIsCgkgICAgICAgYXRvbWljX2xvYWQoJmdfb3BzKSwgYXRvbWljX2xvYWQoJmdf
+          ZXJyKSk7CglmZmx1c2goc3Rkb3V0KTsKCglGSUxFICpmID0gZm9wZW4oIi9yb290L3Jlc3VsdC50
+          eHQiLCAidyIpOwoJaWYgKGYpIHsKCQlmcHJpbnRmKGYsICJvcHM9JWxkXG5lcnI9JWxkXG5zZWNz
+          PSVkXG5ub2RlPSVkXG4iLAoJCQlhdG9taWNfbG9hZCgmZ19vcHMpLCBhdG9taWNfbG9hZCgmZ19l
+          cnIpLCBnX3NlY3MsIGdfbm9kZSk7CgkJZmNsb3NlKGYpOwoJfQoJcmV0dXJuIDA7Cn0K
+          B64EOF
+          wc -l probes/36_futex2_stress.c
+          gcc -O1 -static -pthread -o work/bin/probe probes/36_futex2_stress.c
+          ls -lh work/bin/probe
+      - name: prepare image
+        run: |
+          mkdir -p work/img
+          curl -sL --max-time 60 https://raw.githubusercontent.com/google/syzkaller/master/tools/create-image.sh -o /tmp/create-image.sh
+          chmod +x /tmp/create-image.sh
+          cd work/img
+          sudo env ADD_PACKAGE="openssh-server,iproute2,net-tools,isc-dhcp-client,ifupdown,procps,util-linux" bash /tmp/create-image.sh -d trixie 2>&1 | tail -3
+          sudo chown -R "$(id -u):$(id -g)" trixie.img trixie.id_rsa
+          cp "$GITHUB_WORKSPACE/work/bin/probe" ./probe
+          ls -lh
+      - name: install probe into image
+        run: |
+          cd work/img
+          D="${{ github.event.inputs.duration }}"
+          I="${{ github.event.inputs.instances }}"
+          N="${{ github.event.inputs.node }}"
+          {
+            echo '#!/bin/bash'
+            echo 'exec > /dev/console 2>&1'
+            echo 'echo "=== PROBE36 START ==="'
+            echo 'uname -a'
+            echo "cat /proc/sys/kernel/randomize_va_space 2>/dev/null"
+            for k in $(seq 1 $I); do
+              echo "/root/probe $D $N > /root/out$k.log 2>&1 &"
+            done
+            echo 'wait'
+            echo 'echo "=== PROBE36 END ==="'
+            echo 'grep -icE "BUG: KASAN|use-after-free|general protection|WARNING:|kernel BUG" /dev/null || true'
+            echo '{'
+            for k in $(seq 1 $I); do echo "  cat /root/out$k.log"; done
+            echo '} > /root/result.txt 2>&1'
+            echo 'sync'
+            echo 'poweroff -f'
+          } > autorun.sh
+          chmod 755 autorun.sh
+          cat autorun.sh
+          sudo mkdir -p /tmp/mnt
+          sudo mount -o loop trixie.img /tmp/mnt
+          sudo cp probe /tmp/mnt/root/probe
+          sudo cp autorun.sh /tmp/mnt/root/autorun.sh
+          sudo chmod 755 /tmp/mnt/root/probe /tmp/mnt/root/autorun.sh
+          sudo mkdir -p /tmp/mnt/etc/systemd/system/multi-user.target.wants
+          sudo ln -sf /lib/systemd/system/networking.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/networking.service
+          printf '%s\n' '[Unit]' 'Description=autorun probe' 'After=multi-user.target' '' '[Service]' 'Type=oneshot' 'ExecStart=/root/autorun.sh' 'StandardOutput=null' 'StandardError=null' 'TTYPath=/dev/ttyS0' 'StandardInput=null' 'Restart=no' '' '[Install]' 'WantedBy=multi-user.target' | sudo tee /tmp/mnt/etc/systemd/system/autorun.service > /dev/null
+          sudo ln -sf /etc/systemd/system/autorun.service /tmp/mnt/etc/systemd/system/multi-user.target.wants/autorun.service
+          sudo umount /tmp/mnt
+          ls -lh trixie.img
+      - name: boot and collect
+        run: |
+          set +e
+          K=$(find work/kernel -name 'bzImage' | head -1)
+          IMG="$GITHUB_WORKSPACE/work/img/trixie.img"
+          SECS="${{ github.event.inputs.duration }}"
+          LIMIT=$((SECS + 150))
+          timeout ${LIMIT} qemu-system-x86_64 -enable-kvm -cpu host -m 4096 -smp 4 \
+            -kernel "$K" -drive "file=$IMG,format=raw,if=virtio" \
+            -append "root=/dev/vda console=ttyS0 oops=panic panic=1 net.ifnames=0" \
+            -netdev user,id=n0 -device virtio-net-pci,netdev=n0 \
+            -nographic -no-reboot > serial.log 2>&1
+          echo "=== serial size: $(wc -c < serial.log) ==="
+          echo "=== KASAN/GPF markers ==="
+          grep -icE 'BUG: KASAN|general protection|use-after-free|WARNING:|kernel BUG' serial.log
+          echo "=== extract KASAN reports if any ==="
+          grep -nE 'BUG: KASAN|general protection|use-after-free|WARNING:|kernel BUG|Call Trace' serial.log | head -40
+          sync
+          sudo mkdir -p /tmp/rmnt
+          sudo mount -o loop "$IMG" /tmp/rmnt
+          sudo cp /tmp/rmnt/root/result.txt ./result.txt 2>/dev/null || echo NO_RESULT_FILE > result.txt
+          sudo umount /tmp/rmnt
+          echo "=== RESULT ==="
+          cat result.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: futex2-stress-output
+          path: |
+            serial.log
+            result.txt
+          if-no-files-found: warn
