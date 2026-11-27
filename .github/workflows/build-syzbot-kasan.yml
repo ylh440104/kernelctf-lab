@@ -19,7 +19,8 @@ jobs:
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq build-essential flex bison libssl-dev libelf-dev \
-            libncurses-dev bc pkg-config dwarves zstd cpio kmod rsync git
+            libncurses-dev bc pkg-config dwarves zstd cpio kmod rsync git \
+            libdw-dev libelf-dev elfutils python3-setuptools
       - name: fetch linux
         run: |
           git init linux && cd linux
@@ -49,7 +50,7 @@ jobs:
           grep -E '^CONFIG_(KASAN|KCOV|FAULT_INJECTION|FAIL_FUTEX|USER_NS|IO_URING|FAILSLAB|DEBUG_INFO)=' .config
           grep -E 'KASAN_INLINE|KCOV_INSTRUMENT_ALL|FAULT_INJECTION_DEBUG_FS' .config | head -8
           echo '=== options we must keep OFF for build stability ==='
-          ./scripts/config --file .config -d SLAB_VIRTUAL -d RANDOMIZE_BASE -d KASAN_VMALLOC || true
+          ./scripts/config --file .config -d SLAB_VIRTUAL -d RANDOMIZE_BASE -d KASAN_VMALLOC -d GENDWARFKSYMS || true
           make olddefconfig
           grep -E 'CONFIG_SLAB_VIRTUAL|CONFIG_RANDOMIZE_BASE|CONFIG_KASAN_VMALLOC' .config || true
       - name: build
