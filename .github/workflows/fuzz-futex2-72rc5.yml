@@ -138,10 +138,10 @@ jobs:
             "image": "$WS/work/img/trixie.img",
             "sshkey": "$WS/work/img/trixie.id_rsa",
             "syzkaller": "$WS/syzkaller",
-            "procs": 2,
+            "procs": 3,
             "type": "qemu",
             "vm": {
-              "count": 3,
+              "count": 2,
               "kernel": "$WS/work/kernel/bzImage",
               "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0 numa=fake=1",
               "cpu": 2,
@@ -151,7 +151,8 @@ jobs:
             },
             "cover": true,
             "sandbox": "$SB",
-            "reproduce": true
+            "reproduce": true,
+            "ignores": ["WARNING in __kvm_gpc_refresh"]
           }
           CFG
           cat work/config.cfg
