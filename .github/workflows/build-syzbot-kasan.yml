@@ -1,0 +1,83 @@
+name: build-syzbot-kasan
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        required: true
+        default: 'b6a9fa34ce4187cb69d3c588a4bbffc31ce5db8f'
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: free disk space
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL || true
+          sudo apt-get clean
+          df -h /
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq build-essential flex bison libssl-dev libelf-dev \
+            libncurses-dev bc pkg-config dwarves zstd cpio kmod rsync git
+      - name: fetch linux
+        run: |
+          git init linux && cd linux
+          git remote add origin https://github.com/torvalds/linux.git
+          R="${{ github.event.inputs.ref }}"
+          if git fetch --depth 1 origin "$R"; then
+            echo "fetched by sha"
+          elif git fetch --depth 1 origin "refs/tags/$R"; then
+            echo "fetched by tag"
+          else
+            echo "fallback to master"; git fetch --depth 1 origin master
+          fi
+          git checkout FETCH_HEAD
+          echo "HEAD=$(git rev-parse HEAD)"
+          head -5 Makefile
+      - name: apply syzbot config
+        run: |
+          cd linux
+          for t in 1 2 3; do
+            curl -fsSL --max-time 60 'https://raw.githubusercontent.com/google/syzkaller/master/dashboard/config/linux/upstream-kasan-badwrites.config' -o .config && break
+            sleep 4
+          done
+          wc -c .config
+          grep -cE '^CONFIG_' .config
+          make olddefconfig
+          echo '=== verify syzbot-grade options ==='
+          grep -E '^CONFIG_(KASAN|KCOV|FAULT_INJECTION|FAIL_FUTEX|USER_NS|IO_URING|FAILSLAB|DEBUG_INFO)=' .config
+          grep -E 'KASAN_INLINE|KCOV_INSTRUMENT_ALL|FAULT_INJECTION_DEBUG_FS' .config | head -8
+          echo '=== options we must keep OFF for build stability ==='
+          ./scripts/config --file .config -d SLAB_VIRTUAL -d RANDOMIZE_BASE -d KASAN_VMALLOC || true
+          make olddefconfig
+          grep -E 'CONFIG_SLAB_VIRTUAL|CONFIG_RANDOMIZE_BASE|CONFIG_KASAN_VMALLOC' .config || true
+      - name: build
+        run: |
+          cd linux
+          make -j$(nproc) bzImage > /tmp/build.log 2>&1 || { echo BUILD_FAIL; tail -120 /tmp/build.log; exit 1; }
+          make -j$(nproc) vmlinux > /tmp/vmlog 2>&1 || { echo VMLINUX_FAIL; tail -60 /tmp/vmlog; exit 1; }
+          ls -lh arch/x86/boot/bzImage vmlinux
+          nm vmlinux | grep -cE '__asan_load|kasan_report' || true
+      - name: package
+        run: |
+          mkdir -p dist
+          cp linux/arch/x86/boot/bzImage dist/bzImage
+          cp linux/vmlinux dist/vmlinux
+          cp linux/.config dist/.config
+          cd dist && sha256sum bzImage vmlinux .config > SHA256SUMS && cat SHA256SUMS
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kernel-syzbot-kasan
+          path: dist/*
+          if-no-files-found: warn
+          retention-days: 90
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: build-logs-syzbot
+          path: |
+            /tmp/build.log
+            /tmp/vmlog
+          if-no-files-found: warn
