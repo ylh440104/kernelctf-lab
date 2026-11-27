@@ -143,7 +143,7 @@ jobs:
             "vm": {
               "count": 3,
               "kernel": "$WS/work/kernel/bzImage",
-              "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0",
+              "cmdline": "root=/dev/sda console=ttyS0 oops=panic panic=1 net.ifnames=0 numa=fake=1",
               "cpu": 2,
               "mem": 3072,
               "network_device": "virtio-net-pci",
